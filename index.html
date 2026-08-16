@@ -20,7 +20,7 @@
     <script type="text/babel">
         // --- הגדרות חיבור ל-SUPABASE ---
         const SUPABASE_URL = 'https://thnfcunjgodtkuugbfg.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_FIo2bDyuizlE6cPf9HzMkw_r621ajwI';
+        const SUPABASE_ANON_KEY = 'הדבק_כאן_את_המפתח_מ-Publishable_key';
         const CITY_NAME = 'Ashdod';
 
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -31,40 +31,55 @@
             const [dayTimes, setDayTimes] = React.useState({});
             const [activeFilter, setActiveFilter] = React.useState('all');
             const [events, setEvents] = React.useState([]);
-            const [isLoading, setIsLoading] = React.useState(true);
 
-            // Form state for new event
+            // Form states
             const [newTitle, setNewTitle] = React.useState('');
-            const [newTime, setNewTime] = React.useState('');
+            const [itemType, setItemType] = React.useState('event'); // event | meeting | task
+            const [isAllDay, setIsAllDay] = React.useState(true);
+            const [startTime, setStartTime] = React.useState('');
+            const [endTime, setEndTime] = React.useState('');
+            const [location, setLocation] = React.useState('');
             const [newOwner, setNewOwner] = React.useState('dudi');
-            const [newCategory, setNewCategory] = React.useState('סידורים');
 
-            // Fetch events from Supabase
-            const fetchEvents = async () => {
-                setIsLoading(true);
-                const { data, error } = await supabase.from('events').select('*');
-                if (error) {
-                    console.error('Error fetching events:', error);
-                } else {
-                    setEvents(data || []);
+            // Today's date comparison string (YYYY-MM-DD)
+            const todayObj = new Date();
+            const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+
+            // Roll over uncompleted tasks to today
+            const rolloverUncompletedTasks = async (fetchedEvents) => {
+                const overdueTasks = fetchedEvents.filter(e => 
+                    e.category === 'task' && 
+                    !e.is_completed && 
+                    e.date < todayStr
+                );
+
+                if (overdueTasks.length > 0) {
+                    for (let task of overdueTasks) {
+                        await supabase.from('events').update({ date: todayStr }).eq('id', task.id);
+                    }
+                    fetchEvents();
                 }
-                setIsLoading(false);
+            };
+
+            const fetchEvents = async () => {
+                const { data, error } = await supabase.from('events').select('*');
+                if (!error && data) {
+                    setEvents(data);
+                    rolloverUncompletedTasks(data);
+                }
             };
 
             React.useEffect(() => {
                 fetchEvents();
             }, []);
 
-            // Fetch Sunset times from Hebcal API
             React.useEffect(() => {
                 const year = currentDate.getFullYear();
                 const month = currentDate.getMonth() + 1;
                 fetch(`https://www.hebcal.com/zmanim?cfg=json&city=${CITY_NAME}&month=${year}-${month}`)
                     .then(res => res.json())
                     .then(data => {
-                        if (data && data.times) {
-                            setDayTimes(data.times);
-                        }
+                        if (data && data.times) setDayTimes(data.times);
                     })
                     .catch(err => console.error('Error fetching times:', err));
             }, [currentDate]);
@@ -82,31 +97,37 @@
                 return ev.owner === activeFilter;
             });
 
+            const toggleTaskCompletion = async (eventId, currentStatus) => {
+                const { error } = await supabase.from('events').update({ is_completed: !currentStatus }).eq('id', eventId);
+                if (!error) fetchEvents();
+            };
+
             const handleAddEvent = async (e) => {
                 e.preventDefault();
                 if (!newTitle.trim() || !selectedDayData) return;
 
+                const timeDisplay = isAllDay ? 'כל היום' : `${startTime}${endTime ? ' - ' + endTime : ''}`;
+
                 const newEvent = {
                     title: newTitle,
                     date: selectedDayData.dateStr,
-                    time: newTime || null,
+                    time: timeDisplay,
                     owner: newOwner,
-                    category: newCategory,
+                    category: itemType,
+                    location: location || null,
                     is_completed: false
                 };
 
                 const { data, error } = await supabase.from('events').insert([newEvent]).select();
-                if (error) {
-                    alert('שגיאה בשמירת האירוע');
-                } else {
-                    const updated = [...events, ...(data || [newEvent])];
-                    setEvents(updated);
-                    setSelectedDayData({
-                        ...selectedDayData,
-                        events: [...selectedDayData.events, newEvent]
-                    });
+                if (!error) {
+                    fetchEvents();
                     setNewTitle('');
-                    setNewTime('');
+                    setLocation('');
+                    setStartTime('');
+                    setEndTime('');
+                    setIsAllDay(true);
+                } else {
+                    alert('שגיאה בשמירה. ודא כי הטבלה ב-Supabase מעודכנת');
                 }
             };
 
@@ -137,7 +158,7 @@
                             <button 
                                 onClick={() => setActiveFilter('wife')}
                                 className={`flex-1 py-1.5 rounded-lg transition ${activeFilter === 'wife' ? 'bg-purple-600 text-white shadow' : 'text-slate-600'}`}>
-                                אשתי
+                                שיינדי
                             </button>
                             <button 
                                 onClick={() => setActiveFilter('shared')}
@@ -163,23 +184,34 @@
                             const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
                             const dayEvents = filteredEvents.filter(e => e.date === dateStr);
                             const sunsetTime = dayTimes[dateStr] || dayTimes[`${dateStr}T00:00:00`]?.[0];
+                            const isToday = dateStr === todayStr;
 
                             return (
                                 <div 
                                     key={dayNum} 
                                     onClick={() => setSelectedDayData({ dayNum, dateStr, events: dayEvents })}
-                                    className="h-20 bg-white rounded-lg p-1 border border-slate-100 flex flex-col justify-between shadow-sm cursor-pointer active:scale-95 transition">
-                                    <span className="text-xs font-bold text-slate-700">{dayNum}</span>
+                                    className={`h-20 rounded-lg p-1 border flex flex-col justify-between shadow-sm cursor-pointer active:scale-95 transition ${
+                                        isToday 
+                                            ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-300' 
+                                            : 'bg-white border-slate-100'
+                                    }`}>
+                                    
+                                    <div className="flex justify-between items-center">
+                                        <span className={`text-xs font-bold px-1 rounded ${isToday ? 'bg-amber-400 text-slate-900' : 'text-slate-700'}`}>
+                                            {dayNum}
+                                        </span>
+                                    </div>
                                     
                                     <div className="flex flex-col gap-0.5 overflow-hidden">
                                         {dayEvents.slice(0, 2).map((ev, idx) => (
                                             <div 
                                                 key={idx} 
                                                 className={`text-[9px] px-1 rounded truncate text-white ${
+                                                    ev.is_completed ? 'line-through opacity-50 bg-slate-400' :
                                                     ev.owner === 'dudi' ? 'bg-blue-500' :
                                                     ev.owner === 'wife' ? 'bg-purple-500' : 'bg-emerald-500'
                                                 }`}>
-                                                {ev.title}
+                                                {ev.category === 'task' ? '☑ ' : ev.category === 'meeting' ? '🤝 ' : ''}{ev.title}
                                             </div>
                                         ))}
                                         {dayEvents.length > 2 && (
@@ -187,7 +219,6 @@
                                         )}
                                     </div>
 
-                                    {/* Sunset indicator */}
                                     {sunsetTime && (
                                         <div className="text-[8px] text-amber-600 font-medium">
                                             🌅 {new Date(sunsetTime).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}
@@ -198,62 +229,135 @@
                         })}
                     </div>
 
-                    {/* Modal for Day Details & Add Event */}
+                    {/* Modal for Day Details & Add Item */}
                     {selectedDayData && (
                         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end justify-center z-50">
-                            <div className="bg-white w-full max-w-md rounded-t-2xl p-5 shadow-2xl flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+                            <div className="bg-white w-full max-w-md rounded-t-2xl p-5 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
                                 <div className="flex justify-between items-center border-b pb-2">
-                                    <h3 className="font-bold text-lg text-slate-800">אירועים ל-{selectedDayData.dateStr}</h3>
+                                    <h3 className="font-bold text-lg text-slate-800">תכנון ל-{selectedDayData.dateStr}</h3>
                                     <button onClick={() => setSelectedDayData(null)} className="text-slate-400 font-bold text-xl">✕</button>
                                 </div>
 
-                                {/* List Existing Events */}
+                                {/* List Items */}
                                 <div className="flex flex-col gap-2">
-                                    {selectedDayData.events.length === 0 ? (
-                                        <p className="text-sm text-slate-400 text-center py-2">אין אירועים קיימים ליום זה</p>
+                                    {events.filter(e => e.date === selectedDayData.dateStr).length === 0 ? (
+                                        <p className="text-sm text-slate-400 text-center py-2">אין אירועים או משימות ליום זה</p>
                                     ) : (
-                                        selectedDayData.events.map((ev, idx) => (
+                                        events.filter(e => e.date === selectedDayData.dateStr).map((ev, idx) => (
                                             <div key={idx} className="p-3 rounded-xl bg-slate-50 border flex justify-between items-center">
-                                                <div>
-                                                    <p className="font-semibold text-sm text-slate-800">{ev.title}</p>
-                                                    <p className="text-xs text-slate-400">{ev.time || 'כל היום'} • {ev.owner === 'dudi' ? 'דודי' : ev.owner === 'wife' ? 'אשתי' : 'משותף'}</p>
+                                                <div className="flex items-center gap-2">
+                                                    {ev.category === 'task' && (
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={ev.is_completed || false} 
+                                                            onChange={() => toggleTaskCompletion(ev.id, ev.is_completed)}
+                                                            className="w-4 h-4 rounded text-blue-600"
+                                                        />
+                                                    )}
+                                                    <div>
+                                                        <p className={`font-semibold text-sm text-slate-800 ${ev.is_completed ? 'line-through text-slate-400' : ''}`}>
+                                                            {ev.title}
+                                                        </p>
+                                                        <p className="text-xs text-slate-400">
+                                                            {ev.time} • {ev.owner === 'dudi' ? 'דודי' : ev.owner === 'wife' ? 'שיינדי' : 'משותף'}
+                                                            {ev.location && ` • 📍 ${ev.location}`}
+                                                        </p>
+                                                    </div>
                                                 </div>
+                                                <span className="text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-600">
+                                                    {ev.category === 'task' ? 'משימה' : ev.category === 'meeting' ? 'פגישה' : 'אירוע'}
+                                                </span>
                                             </div>
                                         ))
                                     )}
                                 </div>
 
-                                {/* Add Event Form */}
+                                {/* Add Form */}
                                 <form onSubmit={handleAddEvent} className="border-t pt-3 flex flex-col gap-3">
-                                    <h4 className="font-bold text-sm text-slate-700">הוספת אירוע חדש</h4>
+                                    <h4 className="font-bold text-sm text-slate-700">הוספה חדשה</h4>
+                                    
+                                    {/* Item Type Selector */}
+                                    <div className="flex bg-slate-100 p-1 rounded-lg text-xs font-semibold">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setItemType('event')}
+                                            className={`flex-1 py-1 rounded-md ${itemType === 'event' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
+                                            אירוע
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setItemType('meeting')}
+                                            className={`flex-1 py-1 rounded-md ${itemType === 'meeting' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
+                                            פגישה
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setItemType('task')}
+                                            className={`flex-1 py-1 rounded-md ${itemType === 'task' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
+                                            משימה
+                                        </button>
+                                    </div>
+
                                     <input 
                                         type="text" 
-                                        placeholder="שם האירוע" 
+                                        placeholder="כותרת" 
                                         value={newTitle} 
                                         onChange={(e) => setNewTitle(e.target.value)}
-                                        className="w-full p-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-800"
+                                        className="w-full p-2 text-sm border rounded-lg focus:outline-none"
                                         required
                                     />
-                                    <div className="flex gap-2">
-                                        <input 
-                                            type="time" 
-                                            value={newTime} 
-                                            onChange={(e) => setNewTime(e.target.value)}
-                                            className="flex-1 p-2 text-sm border rounded-lg focus:outline-none"
-                                        />
-                                        <select 
-                                            value={newOwner} 
-                                            onChange={(e) => setNewOwner(e.target.value)}
-                                            className="flex-1 p-2 text-sm border rounded-lg focus:outline-none bg-white">
-                                            <option value="dudi">דודי</option>
-                                            <option value="wife">אשתי</option>
-                                            <option value="shared">משותף</option>
-                                        </select>
+
+                                    {/* Time selection */}
+                                    <div className="flex flex-col gap-2 bg-slate-50 p-2 rounded-lg border">
+                                        <label className="flex items-center gap-2 text-xs text-slate-600 font-bold cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={isAllDay} 
+                                                onChange={(e) => setIsAllDay(e.target.checked)} 
+                                            />
+                                            כל היום
+                                        </label>
+                                        {!isAllDay && (
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="time" 
+                                                    value={startTime} 
+                                                    onChange={(e) => setStartTime(e.target.value)} 
+                                                    className="flex-1 p-1.5 text-xs border rounded bg-white"
+                                                    required
+                                                />
+                                                <span className="text-xs self-center">עד</span>
+                                                <input 
+                                                    type="time" 
+                                                    value={endTime} 
+                                                    onChange={(e) => setEndTime(e.target.value)} 
+                                                    className="flex-1 p-1.5 text-xs border rounded bg-white"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
+
+                                    <input 
+                                        type="text" 
+                                        placeholder="מיקום (אופציונלי)" 
+                                        value={location} 
+                                        onChange={(e) => setLocation(e.target.value)}
+                                        className="w-full p-2 text-sm border rounded-lg focus:outline-none"
+                                    />
+
+                                    <select 
+                                        value={newOwner} 
+                                        onChange={(e) => setNewOwner(e.target.value)}
+                                        className="w-full p-2 text-sm border rounded-lg focus:outline-none bg-white">
+                                        <option value="dudi">דודי</option>
+                                        <option value="wife">שיינדי</option>
+                                        <option value="shared">משותף</option>
+                                    </select>
+
                                     <button 
                                         type="submit" 
                                         className="w-full py-2 bg-slate-800 text-white text-sm font-bold rounded-lg shadow active:scale-95 transition">
-                                        שמור אירוע
+                                        שמור
                                     </button>
                                 </form>
                             </div>
