@@ -114,7 +114,7 @@
                     time: timeDisplay,
                     owner: newOwner,
                     category: itemType,
-                    location: location || null,
+                    location: location.trim() ? location : null,
                     is_completed: false
                 };
 
@@ -126,8 +126,10 @@
                     setStartTime('');
                     setEndTime('');
                     setIsAllDay(true);
+                    setSelectedDayData(null);
                 } else {
-                    alert('שגיאה בשמירה. ודא כי הטבלה ב-Supabase מעודכנת');
+                    console.error('Save error details:', error);
+                    alert(`שגיאה בשמירה: ${error.message || 'ודא שהרצת את ה-SQL ב-Supabase'}`);
                 }
             };
 
