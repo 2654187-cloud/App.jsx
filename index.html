@@ -47,9 +47,16 @@
       }, []);
 
       const fetchEvents = async () => {
-        const { data, error } = await supabase.from('events').select('*');
-        if (!error && data) {
-          setEvents(data);
+        try {
+          const { data, error } = await supabase.from('events').select('*');
+          if (error) {
+            console.error('שגיאה בטעינת אירועים:', error);
+            alert('שגיאה בטעינת נתונים מ-Supabase: ' + error.message);
+          } else if (data) {
+            setEvents(data);
+          }
+        } catch (err) {
+          console.error('חיבור נכשל:', err);
         }
       };
 
@@ -67,19 +74,29 @@
 
         if (editingEventId) {
           const { error } = await supabase.from('events').update(payload).eq('id', editingEventId);
-          if (!error) fetchEvents();
+          if (error) {
+            alert('שגיאה בעדכון: ' + error.message);
+          } else {
+            fetchEvents();
+            closeModal();
+          }
         } else {
           const { error } = await supabase.from('events').insert([payload]);
-          if (!error) fetchEvents();
+          if (error) {
+            alert('שגיאה בשמירת אירוע חדש: ' + error.message);
+          } else {
+            fetchEvents();
+            closeModal();
+          }
         }
-
-        closeModal();
       };
 
       const handleDeleteEvent = async (id) => {
         if (confirm('האם למחוק אירוע זה?')) {
           const { error } = await supabase.from('events').delete().eq('id', id);
-          if (!error) {
+          if (error) {
+            alert('שגיאה במחיקה: ' + error.message);
+          } else {
             fetchEvents();
             if (selectedDateEvents) {
               setSelectedDateEvents(prev => ({
@@ -172,7 +189,6 @@
         return grid;
       };
 
-      // Render Day Timeline
       const renderDayTimeline = (targetDateStr) => {
         const dayEvs = events.filter(e => e.date === targetDateStr);
         const allDayEvs = dayEvs.filter(e => e.time === 'כל היום' || !e.time);
@@ -186,7 +202,6 @@
               <h3 className="font-black text-xl text-slate-800">ציר זמן יומי ל-{targetDateStr}</h3>
             </div>
 
-            {/* All Day Events Section */}
             {allDayEvs.length > 0 && (
               <div className="mb-4 bg-amber-50/60 border border-amber-200 rounded-xl p-3">
                 <span className="text-xs font-bold text-amber-800 block mb-2">אירועים לכל היום:</span>
@@ -207,11 +222,10 @@
               </div>
             )}
 
-            {/* Hours Timeline */}
             <div className="space-y-1 max-h-[550px] overflow-y-auto pr-1">
               {hours.map(hourNum => {
                 const hourPrefix = String(hourNum).padStart(2, '0');
-                const hourEvs = timedEvs.filter(e => e.time.startsWith(hourPrefix));
+                const hourEvs = timedEvs.filter(e => e.time && e.time.startsWith(hourPrefix));
 
                 return (
                   <div key={hourNum} className="flex border-b border-slate-100 py-2.5 min-h-[55px] items-start">
