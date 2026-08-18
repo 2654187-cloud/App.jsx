@@ -44,6 +44,7 @@
       const [isDarkMode, setIsDarkMode] = React.useState(true);
       const [currentDate, setCurrentDate] = React.useState(new Date());
       const [viewMode, setViewMode] = React.useState('month');
+      const [filterOwner, setFilterOwner] = React.useState('הכול');
       const [events, setEvents] = React.useState([]);
       const [selectedDateEvents, setSelectedDateEvents] = React.useState(null);
       const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -58,6 +59,8 @@
       const [endTime, setEndTime] = React.useState('11:00');
       const [isAllDay, setIsAllDay] = React.useState(false);
       const [owner, setOwner] = React.useState('דודי');
+
+      const todayStr = new Date().toISOString().split('T')[0];
 
       React.useEffect(() => {
         fetchEvents();
@@ -103,12 +106,6 @@
           const { error } = await supabase.from('events').delete().eq('id', id);
           if (!error) {
             fetchEvents();
-            if (selectedDateEvents) {
-              setSelectedDateEvents(prev => ({
-                ...prev,
-                events: prev.events.filter(e => e.id !== id)
-              }));
-            }
           }
         }
       };
@@ -150,7 +147,23 @@
         setEditingEventId(null);
       };
 
-      const todayStr = new Date().toISOString().split('T')[0];
+      const handleGoToToday = () => {
+        const now = new Date();
+        setCurrentDate(now);
+        setSelectedDateEvents({ date: todayStr });
+      };
+
+      const handleNavigateTime = (direction) => {
+        const next = new Date(currentDate);
+        if (viewMode === 'month') {
+          next.setMonth(next.getMonth() + direction);
+        } else if (viewMode === 'week') {
+          next.setDate(next.getDate() + (direction * 7));
+        } else if (viewMode === 'day') {
+          next.setDate(next.getDate() + direction);
+        }
+        setCurrentDate(next);
+      };
 
       const handleMonthSelect = (e) => {
         const next = new Date(currentDate);
@@ -163,6 +176,12 @@
         next.setFullYear(parseInt(e.target.value, 10));
         setCurrentDate(next);
       };
+
+      // Filter events based on selected filter
+      const filteredEvents = events.filter(e => {
+        if (filterOwner === 'הכול') return true;
+        return e.owner === filterOwner;
+      });
 
       const getWeekDays = () => {
         const start = new Date(currentDate);
@@ -194,31 +213,31 @@
       };
 
       const renderDayTimeline = (targetDateStr) => {
-        const dayEvs = events.filter(e => e.date === targetDateStr);
+        const dayEvs = filteredEvents.filter(e => e.date === targetDateStr);
 
         if (dayEvs.length === 0) {
           return (
-            <div className={`text-center py-10 px-4 rounded-2xl border border-dashed ${isDarkMode ? 'bg-slate-800/40 border-slate-700/60' : 'bg-slate-50 border-slate-200'}`}>
-              <i className="fa-regular fa-calendar-check text-3xl text-slate-400 mb-2 block"></i>
-              <p className={`text-sm font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>אין אירועים מתוכננים ליום זה</p>
+            <div className={`text-center py-8 px-4 rounded-2xl border border-dashed ${isDarkMode ? 'bg-slate-800/40 border-slate-700/60' : 'bg-slate-50 border-slate-200'}`}>
+              <i className="fa-regular fa-calendar-check text-2xl text-slate-400 mb-2 block"></i>
+              <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>אין אירועים מתוכננים</p>
               <button 
                 onClick={() => openModalForNew(targetDateStr)}
-                className="mt-3 text-xs font-bold text-indigo-500 hover:underline transition"
+                className="mt-2 text-xs font-bold text-indigo-500 hover:underline transition"
               >
-                + הוסף אירוע חדש
+                + הוסף אירוע
               </button>
             </div>
           );
         }
 
         return (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {dayEvs.map(ev => {
               const ownerStyle = OWNER_COLORS[ev.owner] || OWNER_COLORS['דודי'];
               return (
                 <div 
                   key={ev.id} 
-                  className={`rounded-2xl p-4 shadow-sm border transition flex flex-col justify-between gap-3 relative overflow-hidden ${
+                  className={`rounded-2xl p-3.5 shadow-sm border transition flex flex-col justify-between gap-2.5 relative overflow-hidden ${
                     isDarkMode ? 'bg-slate-800 border-slate-700/70 text-slate-100' : 'bg-white border-slate-100 text-slate-800'
                   }`}
                 >
@@ -227,7 +246,7 @@
                   <div className="flex justify-between items-start pr-2">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${ownerStyle.badge}`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${ownerStyle.badge}`}>
                           {ev.owner}
                         </span>
                         <span className={`text-xs font-semibold flex items-center gap-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -235,7 +254,7 @@
                           {ev.time} {ev.end_time ? `- ${ev.end_time}` : ''}
                         </span>
                       </div>
-                      <h4 className="font-bold text-base leading-snug">{ev.title}</h4>
+                      <h4 className="font-bold text-sm leading-snug">{ev.title}</h4>
                       {ev.description && (
                         <p className={`text-xs mt-1 leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>{ev.description}</p>
                       )}
@@ -256,12 +275,12 @@
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`} 
                       target="_blank" 
                       rel="noreferrer" 
-                      className={`text-xs font-semibold px-3 py-1.5 rounded-xl inline-flex items-center gap-1.5 w-fit transition mr-2 ${
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-xl inline-flex items-center gap-1.5 w-fit transition mr-2 ${
                         isDarkMode ? 'bg-indigo-950/60 text-indigo-300 hover:bg-indigo-900/80' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
                       }`}
                     >
                       <i className="fa-solid fa-location-dot"></i>
-                      <span className="truncate max-w-[220px]">{ev.location}</span>
+                      <span className="truncate max-w-[200px]">{ev.location}</span>
                     </a>
                   )}
                 </div>
@@ -270,6 +289,9 @@
           </div>
         );
       };
+
+      const selectedDate = selectedDateEvents ? selectedDateEvents.date : todayStr;
+      const weekDays = getWeekDays();
 
       return (
         <div className={`min-h-screen pb-12 transition-colors duration-200 ${isDarkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-100 text-slate-800'}`}>
@@ -289,7 +311,6 @@
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Dark / Light Toggle */}
                 <button 
                   onClick={() => setIsDarkMode(!isDarkMode)} 
                   className={`w-9 h-9 rounded-xl flex items-center justify-center transition active:scale-90 border ${
@@ -312,15 +333,43 @@
           </header>
 
           {/* Main App Container */}
-          <main className="max-w-md mx-auto px-3 pt-4 space-y-4">
+          <main className="max-w-md mx-auto px-3 pt-3 space-y-3">
+
+            {/* Owner Filter Tabs */}
+            <div className={`p-1.5 rounded-2xl border shadow-sm flex items-center justify-between gap-1 text-xs font-bold ${
+              isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200'
+            }`}>
+              {['הכול', 'דודי', 'שיינדי', 'כללי'].map((name) => (
+                <button
+                  key={name}
+                  onClick={() => setFilterOwner(name)}
+                  className={`flex-1 py-1.5 rounded-xl transition text-center ${
+                    filterOwner === name
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
 
             {/* Navigation & Month/Year Selectors */}
-            <div className={`rounded-2xl p-4 border shadow-xl space-y-3 ${
+            <div className={`rounded-2xl p-3.5 border shadow-xl space-y-3 ${
               isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200'
             }`}>
               
               <div className="flex items-center justify-between gap-2">
-                {/* Month & Year Selectors */}
+                <button 
+                  onClick={() => handleNavigateTime(1)} 
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center border transition ${
+                    isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="הבא"
+                >
+                  <i className="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+
                 <div className="flex items-center gap-2 flex-1 justify-center">
                   <select 
                     value={currentDate.getMonth()} 
@@ -348,8 +397,18 @@
                 </div>
 
                 <button 
-                  onClick={() => setCurrentDate(new Date())} 
-                  className="text-[11px] font-bold text-indigo-500 hover:underline px-2 py-1"
+                  onClick={() => handleNavigateTime(-1)} 
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center border transition ${
+                    isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="הקודם"
+                >
+                  <i className="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+
+                <button 
+                  onClick={handleGoToToday} 
+                  className="text-xs font-black bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white px-3 py-1.5 rounded-xl border border-indigo-500/30 transition active:scale-95 mr-1"
                 >
                   היום
                 </button>
@@ -361,19 +420,19 @@
               }`}>
                 <button 
                   onClick={() => setViewMode('month')} 
-                  className={`py-2 rounded-lg transition ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
+                  className={`py-1.5 rounded-lg transition ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
                 >
                   חודש
                 </button>
                 <button 
                   onClick={() => setViewMode('week')} 
-                  className={`py-2 rounded-lg transition ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
+                  className={`py-1.5 rounded-lg transition ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
                 >
                   שבוע
                 </button>
                 <button 
                   onClick={() => setViewMode('day')} 
-                  className={`py-2 rounded-lg transition ${viewMode === 'day' ? 'bg-indigo-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
+                  className={`py-1.5 rounded-lg transition ${viewMode === 'day' ? 'bg-indigo-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
                 >
                   יום
                 </button>
@@ -397,13 +456,13 @@
 
                     const { day, dStr } = cell;
                     const isToday = dStr === todayStr;
-                    const isSelected = selectedDateEvents?.date === dStr;
-                    const dayEvents = events.filter(e => e.date === dStr);
+                    const isSelected = selectedDate === dStr;
+                    const dayEvents = filteredEvents.filter(e => e.date === dStr);
 
                     return (
                       <div 
                         key={dStr} 
-                        onClick={() => setSelectedDateEvents({ date: dStr, events: dayEvents })}
+                        onClick={() => setSelectedDateEvents({ date: dStr })}
                         className={`h-12 rounded-xl p-1 cursor-pointer transition flex flex-col justify-between items-center relative ${
                           isSelected
                             ? 'bg-indigo-600/30 border-2 border-indigo-500 shadow-md'
@@ -422,7 +481,6 @@
                           {day}
                         </span>
 
-                        {/* Dot Indicators */}
                         <div className="flex items-center justify-center gap-0.5 max-w-full overflow-hidden px-0.5 pb-0.5">
                           {dayEvents.slice(0, 3).map((ev, idx) => {
                             const ownerStyle = OWNER_COLORS[ev.owner] || OWNER_COLORS['דודי'];
@@ -452,33 +510,52 @@
                     <span className={`text-sm font-black px-2.5 py-0.5 rounded-lg border shadow-sm ${
                       isDarkMode ? 'bg-slate-900 text-white border-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200'
                     }`}>
-                      {selectedDateEvents ? selectedDateEvents.date : todayStr}
+                      {selectedDate}
                     </span>
                   </div>
                   <button 
-                    onClick={() => openModalForNew(selectedDateEvents ? selectedDateEvents.date : todayStr)}
+                    onClick={() => openModalForNew(selectedDate)}
                     className="text-xs font-bold text-indigo-500 hover:underline transition"
                   >
                     + הוסף
                   </button>
                 </div>
 
-                {renderDayTimeline(selectedDateEvents ? selectedDateEvents.date : todayStr)}
+                {renderDayTimeline(selectedDate)}
               </div>
             )}
 
-            {/* Weekly View Mobile */}
+            {/* Weekly View */}
             {viewMode === 'week' && (
               <div className={`rounded-3xl p-4 shadow-xl space-y-4 ${
                 isDarkMode ? 'bg-slate-800/90 border border-slate-700' : 'bg-white border border-slate-200'
               }`}>
                 <div className={`flex items-center justify-between font-extrabold text-sm border-b pb-2 ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                  <span>מבט שבועי</span>
-                  <span className="text-xs font-normal text-slate-400">7 ימים מרוכזים</span>
+                  <span>
+                    שבוע: {weekDays[0].toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })} - {weekDays[6].toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => handleNavigateTime(-1)}
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center border transition ${
+                        isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      <i className="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+                    <button 
+                      onClick={() => handleNavigateTime(1)}
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center border transition ${
+                        isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      <i className="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="space-y-3">
-                  {getWeekDays().map((d, idx) => {
+                  {weekDays.map((d, idx) => {
                     const dStr = d.toISOString().split('T')[0];
                     const isToday = dStr === todayStr;
 
@@ -488,7 +565,7 @@
                       }`}>
                         <div className="flex items-center justify-between mb-2">
                           <span className={`text-xs font-black px-2 py-0.5 rounded-md ${isToday ? 'bg-indigo-600 text-white' : isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
-                            יום {['א\'','ב\'','ג\'','ד\'','ה\'','ו\'','ש\''][d.getDay()]} ({d.getDate()})
+                            יום {['א\'','ב\'','ג\'','ד\'','ה\'','ו\'','ש\''][d.getDay()]} ({d.getDate()}/{d.getMonth() + 1})
                           </span>
                           <button onClick={() => openModalForNew(dStr)} className="text-[11px] font-bold text-indigo-500">
                             + הוסף
@@ -502,7 +579,7 @@
               </div>
             )}
 
-            {/* Daily View Mobile */}
+            {/* Daily View */}
             {viewMode === 'day' && (
               <div className={`rounded-3xl p-4 shadow-xl space-y-3 ${
                 isDarkMode ? 'bg-slate-800/90 border border-slate-700' : 'bg-white border border-slate-200'
