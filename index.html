@@ -78,7 +78,10 @@
           if (!error) {
             fetchEvents();
             if (selectedDateEvents) {
-              setSelectedDateEvents(prev => prev.filter(e => e.id !== id));
+              setSelectedDateEvents(prev => ({
+                ...prev,
+                events: prev.events.filter(e => e.id !== id)
+              }));
             }
           }
         }
@@ -118,7 +121,9 @@
         setEditingEventId(null);
       };
 
-      // Format helpers
+      // Helper dates
+      const todayStr = new Date().toISOString().split('T')[0];
+
       const getFormattedMonth = () => {
         return currentDate.toLocaleString('he-IL', { month: 'long', year: 'numeric' });
       };
@@ -129,6 +134,19 @@
         if (viewMode === 'week') next.setDate(next.getDate() + (amount * 7));
         if (viewMode === 'day') next.setDate(next.getDate() + amount);
         setCurrentDate(next);
+      };
+
+      // Get Week Days array starting from Sunday
+      const getWeekDays = () => {
+        const start = new Date(currentDate);
+        const dayOfWeek = start.getDay();
+        start.setDate(start.getDate() - dayOfWeek);
+
+        return Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(start);
+          d.setDate(d.getDate() + i);
+          return d;
+        });
       };
 
       // Render Day Timeline
@@ -142,7 +160,7 @@
               <h3 className="font-bold text-lg text-slate-700">ציר זמן שעתי ל-{targetDateStr}</h3>
               <button 
                 onClick={() => openModalForNew(targetDateStr)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm transition"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm transition font-bold"
               >
                 + הוסף ביום זה
               </button>
@@ -177,75 +195,84 @@
       };
 
       return (
-        <div className="max-w-4xl mx-auto p-4">
-          {/* Header */}
-          <header className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-4 flex flex-wrap justify-between items-center gap-4">
-            <div className="flex items-center space-x-3 space-x-reverse">
-              <h1 className="text-xl font-black text-indigo-900"><i className="fa-regular fa-calendar-days text-indigo-600 ml-2"></i>יומן ניהול לו"ז</h1>
-              <span className="text-sm font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{getFormattedMonth()}</span>
+        <div className="max-w-5xl mx-auto p-4">
+          {/* Header centered */}
+          <header className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6 flex flex-col items-center text-center gap-4">
+            <div className="flex items-center space-x-3 space-x-reverse justify-center">
+              <h1 className="text-2xl font-black text-indigo-900"><i className="fa-regular fa-calendar-days text-indigo-600 ml-2"></i>יומן ניהול לו"ז משפחתי</h1>
             </div>
+            
+            <span className="text-base font-bold text-slate-600 bg-indigo-50 border border-indigo-100 px-4 py-1.5 rounded-full">{getFormattedMonth()}</span>
 
             {/* View Mode Controls */}
-            <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+            <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
               <button 
                 onClick={() => setViewMode('month')} 
-                className={`px-3 py-1.5 rounded-lg transition ${viewMode === 'month' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                className={`px-4 py-2 rounded-lg transition ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
               >
-                חודשי
+                תצוגה חודשית
               </button>
               <button 
                 onClick={() => setViewMode('week')} 
-                className={`px-3 py-1.5 rounded-lg transition ${viewMode === 'week' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                className={`px-4 py-2 rounded-lg transition ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
               >
-                שבועי
+                תצוגה שבועית
               </button>
               <button 
                 onClick={() => setViewMode('day')} 
-                className={`px-3 py-1.5 rounded-lg transition ${viewMode === 'day' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                className={`px-4 py-2 rounded-lg transition ${viewMode === 'day' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
               >
-                יומי
+                תצוגה יומית
               </button>
             </div>
 
             {/* Navigation & Add */}
-            <div className="flex items-center space-x-2 space-x-reverse">
-              <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-slate-100 rounded-lg"><i className="fa-solid fa-chevron-right"></i></button>
-              <button onClick={() => setCurrentDate(new Date())} className="text-xs font-bold text-slate-600 px-2 py-1 border border-slate-200 rounded-lg">היום</button>
-              <button onClick={() => navigateDate(1)} className="p-2 hover:bg-slate-100 rounded-lg"><i className="fa-solid fa-chevron-left"></i></button>
+            <div className="flex items-center space-x-3 space-x-reverse justify-center">
+              <button onClick={() => navigateDate(-1)} className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition"><i className="fa-solid fa-chevron-right"></i></button>
+              <button onClick={() => setCurrentDate(new Date())} className="text-xs font-bold text-indigo-600 px-3 py-2 border border-indigo-200 bg-indigo-50/50 rounded-xl hover:bg-indigo-100 transition">היום</button>
+              <button onClick={() => navigateDate(1)} className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition"><i className="fa-solid fa-chevron-left"></i></button>
               <button 
                 onClick={() => openModalForNew()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-4 py-2 rounded-xl transition shadow-sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-5 py-2 rounded-xl transition shadow-sm"
               >
-                + חדש
+                + אירוע חדש
               </button>
             </div>
           </header>
 
-          {/* Body views */}
+          {/* Daily View */}
           {viewMode === 'day' && renderDayTimeline(currentDate.toISOString().split('T')[0])}
 
-          {viewMode === 'month' && (
+          {/* Weekly View */}
+          {viewMode === 'week' && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-              <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-400 mb-2">
+              <div className="grid grid-cols-7 gap-2 text-center font-bold text-xs text-slate-500 mb-2">
                 <div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div>
               </div>
-              <div className="grid grid-cols-7 gap-1">
-                {/* Simplified Month Grid */}
-                {Array.from({ length: 35 }, (_, i) => {
-                  const dayNum = i + 1;
-                  const dateStr = `2026-08-${String(dayNum).padStart(2, '0')}`;
-                  const dayEvents = events.filter(e => e.date === dateStr);
+              <div className="grid grid-cols-7 gap-2">
+                {getWeekDays().map((d, idx) => {
+                  const dStr = d.toISOString().split('T')[0];
+                  const isToday = dStr === todayStr;
+                  const dayEvents = events.filter(e => e.date === dStr);
 
                   return (
                     <div 
-                      key={i} 
-                      onClick={() => setSelectedDateEvents({ date: dateStr, events: dayEvents })}
-                      className="border border-slate-100 min-h-[80px] p-1.5 rounded-xl hover:border-indigo-300 cursor-pointer transition flex flex-col justify-between"
+                      key={idx}
+                      onClick={() => setSelectedDateEvents({ date: dStr, events: dayEvents })}
+                      className={`border min-h-[140px] p-2 rounded-xl cursor-pointer transition flex flex-col justify-between ${
+                        isToday 
+                          ? 'bg-indigo-50/80 border-indigo-500 ring-2 ring-indigo-400' 
+                          : 'border-slate-200 hover:border-indigo-300 bg-white'
+                      }`}
                     >
-                      <span className="text-xs font-bold text-slate-500">{dayNum <= 31 ? dayNum : ''}</span>
-                      <div className="space-y-1">
-                        {dayEvents.slice(0, 2).map(ev => (
-                          <div key={ev.id} className="text-[10px] bg-indigo-50 text-indigo-700 p-1 rounded truncate">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={`text-xs font-black ${isToday ? 'bg-indigo-600 text-white px-2 py-0.5 rounded-full' : 'text-slate-600'}`}>
+                          {d.getDate()}
+                        </span>
+                      </div>
+                      <div className="space-y-1 overflow-y-auto max-h-[100px]">
+                        {dayEvents.map(ev => (
+                          <div key={ev.id} className="text-[11px] bg-indigo-100/70 text-indigo-900 font-semibold p-1.5 rounded-lg truncate">
                             {ev.title}
                           </div>
                         ))}
@@ -257,7 +284,52 @@
             </div>
           )}
 
-          {/* Modal / Popup for Selected Date Events */}
+          {/* Monthly View */}
+          {viewMode === 'month' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+              <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-400 mb-2">
+                <div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div>
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: 31 }, (_, i) => {
+                  const dayNum = i + 1;
+                  const year = currentDate.getFullYear();
+                  const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+                  const dateStr = `${year}-${month}-${String(dayNum).padStart(2, '0')}`;
+                  const isToday = dateStr === todayStr;
+                  const dayEvents = events.filter(e => e.date === dateStr);
+
+                  return (
+                    <div 
+                      key={i} 
+                      onClick={() => setSelectedDateEvents({ date: dateStr, events: dayEvents })}
+                      className={`border min-h-[85px] p-1.5 rounded-xl cursor-pointer transition flex flex-col justify-between ${
+                        isToday 
+                          ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-400' 
+                          : 'border-slate-100 hover:border-indigo-300 bg-white'
+                      }`}
+                    >
+                      <span className={`text-xs font-bold ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full self-start' : 'text-slate-500'}`}>
+                        {dayNum}
+                      </span>
+                      <div className="space-y-1">
+                        {dayEvents.slice(0, 2).map(ev => (
+                          <div key={ev.id} className="text-[10px] bg-indigo-100/80 text-indigo-900 font-medium p-1 rounded truncate">
+                            {ev.title}
+                          </div>
+                        ))}
+                        {dayEvents.length > 2 && (
+                          <span className="text-[9px] text-slate-400 font-bold block">+ עוד {dayEvents.length - 2}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Selected Date Modal */}
           {selectedDateEvents && (
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5">
