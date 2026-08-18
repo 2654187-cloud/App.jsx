@@ -4,6 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>יומן ניהול לו"ז משפחתי</title>
+
+  <!-- PWA & Mobile Display Configuration -->
+  <meta name="theme-color" content="#059669" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="יומן משפחתי" />
+
+  <!-- Link & Social Sharing Preview (WhatsApp, etc.) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="יומן ניהול לו&quot;ז משפחתי" />
+  <meta property="og:description" content="ניהול משימות ואירועים בזמן אמת" />
+  <meta property="og:image" content="https://cdn-icons-png.flaticon.com/512/3652/3652191.png" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3652/3652191.png" />
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -50,7 +64,6 @@
       const [selectedDateEvents, setSelectedDateEvents] = React.useState(null);
       const [isModalOpen, setIsModalOpen] = React.useState(false);
 
-      // Form state
       const [editingEventId, setEditingEventId] = React.useState(null);
       const [title, setTitle] = React.useState('');
       const [description, setDescription] = React.useState('');
@@ -178,7 +191,6 @@
         setCurrentDate(next);
       };
 
-      // Filter events based on selected filter
       const filteredEvents = events.filter(e => {
         if (filterOwner === 'הכול') return true;
         if (filterOwner === 'משותף') return e.owner === 'משותף' || e.owner === 'כללי';
@@ -298,7 +310,6 @@
 
       return (
         <div className={`min-h-screen pb-12 transition-colors duration-200 ${isDarkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-100 text-slate-800'}`}>
-          {/* Top Header */}
           <header className={`sticky top-0 z-40 backdrop-blur-md border-b px-4 py-3 transition-colors ${
             isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200 shadow-sm'
           }`}>
@@ -335,10 +346,7 @@
             </div>
           </header>
 
-          {/* Main App Container */}
           <main className="max-w-md mx-auto px-3 pt-3 space-y-3">
-
-            {/* Owner Filter Tabs */}
             <div className={`p-1.5 rounded-2xl border shadow-sm flex items-center justify-between gap-1 text-xs font-bold ${
               isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200'
             }`}>
@@ -357,11 +365,9 @@
               ))}
             </div>
 
-            {/* Navigation & Month/Year Selectors */}
             <div className={`rounded-2xl p-3.5 border shadow-xl space-y-3 ${
               isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200'
             }`}>
-              
               <div className="flex items-center justify-between gap-2">
                 <button 
                   onClick={() => handleNavigateTime(1)} 
@@ -417,7 +423,6 @@
                 </button>
               </div>
 
-              {/* View Switcher Tabs */}
               <div className={`grid grid-cols-3 gap-1 p-1 rounded-xl border text-xs font-bold ${
                 isDarkMode ? 'bg-slate-900/80 border-slate-700/50' : 'bg-slate-100 border-slate-200'
               }`}>
@@ -442,7 +447,6 @@
               </div>
             </div>
 
-            {/* Monthly Grid View */}
             {viewMode === 'month' && (
               <div className={`rounded-2xl p-3 border shadow-xl space-y-2 ${
                 isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200'
@@ -503,7 +507,6 @@
               </div>
             )}
 
-            {/* Selected Day Agenda Drawer */}
             {viewMode === 'month' && (
               <div className={`rounded-3xl p-4 shadow-xl space-y-3 ${
                 isDarkMode ? 'bg-slate-800/90 border border-slate-700' : 'bg-white border border-slate-200'
@@ -529,7 +532,6 @@
               </div>
             )}
 
-            {/* Weekly View */}
             {viewMode === 'week' && (
               <div className={`rounded-3xl p-4 shadow-xl space-y-4 ${
                 isDarkMode ? 'bg-slate-800/90 border border-slate-700' : 'bg-white border border-slate-200'
@@ -583,7 +585,6 @@
               </div>
             )}
 
-            {/* Daily View */}
             {viewMode === 'day' && (
               <div className={`rounded-3xl p-4 shadow-xl space-y-3 ${
                 isDarkMode ? 'bg-slate-800/90 border border-slate-700' : 'bg-white border border-slate-200'
@@ -602,7 +603,6 @@
 
           </main>
 
-          {/* Add / Edit Event Modal */}
           {isModalOpen && (
             <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
               <div className={`rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto ${
