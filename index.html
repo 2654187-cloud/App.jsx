@@ -125,7 +125,6 @@
         setEditingEventId(null);
       };
 
-      // Helper dates
       const todayStr = new Date().toISOString().split('T')[0];
 
       const handleMonthChange = (e) => {
@@ -142,7 +141,6 @@
         setCurrentDate(next);
       };
 
-      // Get Week Days array starting from Sunday
       const getWeekDays = () => {
         const start = new Date(currentDate);
         const dayOfWeek = start.getDay();
@@ -155,7 +153,6 @@
         });
       };
 
-      // Get days for month grid
       const getDaysInMonthGrid = () => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
@@ -163,11 +160,9 @@
         const totalDays = new Date(year, month + 1, 0).getDate();
 
         const grid = [];
-        // Empty cells before month starts
         for (let i = 0; i < firstDay; i++) {
           grid.push(null);
         }
-        // Month days
         for (let day = 1; day <= totalDays; day++) {
           const formattedMonth = String(month + 1).padStart(2, '0');
           const formattedDay = String(day).padStart(2, '0');
@@ -180,32 +175,56 @@
       // Render Day Timeline
       const renderDayTimeline = (targetDateStr) => {
         const dayEvs = events.filter(e => e.date === targetDateStr);
-        const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+        const allDayEvs = dayEvs.filter(e => e.time === 'כל היום' || !e.time);
+        const timedEvs = dayEvs.filter(e => e.time && e.time !== 'כל היום');
+
+        const hours = Array.from({ length: 24 }, (_, i) => i);
 
         return (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-lg text-slate-700">ציר זמן שעתי ל-{targetDateStr}</h3>
-              <button 
-                onClick={() => openModalForNew(targetDateStr)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm transition font-bold"
-              >
-                + הוסף ביום זה
-              </button>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="text-center mb-4 pb-3 border-b border-slate-100">
+              <h3 className="font-black text-xl text-slate-800">ציר זמן יומי ל-{targetDateStr}</h3>
             </div>
 
-            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-              {hours.map(hour => {
-                const hourEvs = dayEvs.filter(e => e.time && e.time.startsWith(hour.substring(0, 2)));
+            {/* All Day Events Section */}
+            {allDayEvs.length > 0 && (
+              <div className="mb-4 bg-amber-50/60 border border-amber-200 rounded-xl p-3">
+                <span className="text-xs font-bold text-amber-800 block mb-2">אירועים לכל היום:</span>
+                <div className="space-y-1.5">
+                  {allDayEvs.map(ev => (
+                    <div key={ev.id} className="bg-white border-r-4 border-amber-500 p-2.5 rounded-lg shadow-sm flex justify-between items-center text-sm">
+                      <div>
+                        <span className="font-bold text-slate-800">{ev.title}</span>
+                        <span className="mr-2 text-xs font-medium text-slate-500">({ev.owner})</span>
+                      </div>
+                      <div className="flex space-x-2 space-x-reverse text-slate-400">
+                        <button onClick={() => openModalForEdit(ev)} className="hover:text-indigo-600"><i className="fa-solid fa-pen"></i></button>
+                        <button onClick={() => handleDeleteEvent(ev.id)} className="hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Hours Timeline */}
+            <div className="space-y-1 max-h-[550px] overflow-y-auto pr-1">
+              {hours.map(hourNum => {
+                const hourPrefix = String(hourNum).padStart(2, '0');
+                const hourEvs = timedEvs.filter(e => e.time.startsWith(hourPrefix));
+
                 return (
-                  <div key={hour} className="flex border-b border-slate-100 py-2 min-h-[50px]">
-                    <div className="w-16 font-mono text-xs text-slate-400 font-bold">{hour}</div>
-                    <div className="flex-1 space-y-1">
+                  <div key={hourNum} className="flex border-b border-slate-100 py-2.5 min-h-[55px] items-start">
+                    <div className="w-16 font-mono text-xs font-bold text-slate-400 pt-1">
+                      {hourPrefix}:00
+                    </div>
+                    <div className="flex-1 space-y-1.5">
                       {hourEvs.map(ev => (
-                        <div key={ev.id} className="bg-indigo-50 border-r-4 border-indigo-500 p-2 rounded flex justify-between items-center text-sm">
-                          <div>
+                        <div key={ev.id} className="bg-indigo-50 border-r-4 border-indigo-600 p-2.5 rounded-xl shadow-sm flex justify-between items-center text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded-md">{ev.time}</span>
                             <span className="font-bold text-slate-800">{ev.title}</span>
-                            <span className="mr-2 text-xs text-slate-500">({ev.owner})</span>
+                            <span className="text-xs text-slate-500">({ev.owner})</span>
                           </div>
                           <div className="flex space-x-2 space-x-reverse text-slate-400">
                             <button onClick={() => openModalForEdit(ev)} className="hover:text-indigo-600"><i className="fa-solid fa-pen"></i></button>
@@ -226,13 +245,11 @@
 
       return (
         <div className="max-w-5xl mx-auto p-4">
-          {/* Header centered */}
           <header className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6 flex flex-col items-center text-center gap-4">
             <div className="flex items-center space-x-3 space-x-reverse justify-center">
               <h1 className="text-2xl font-black text-indigo-900"><i className="fa-regular fa-calendar-days text-indigo-600 ml-2"></i>יומן ניהול לו"ז משפחתי</h1>
             </div>
             
-            {/* Month & Year Selectors */}
             <div className="flex items-center gap-3 bg-indigo-50/70 border border-indigo-100 px-4 py-2 rounded-2xl">
               <select 
                 value={currentDate.getMonth()} 
@@ -262,7 +279,6 @@
               </button>
             </div>
 
-            {/* View Mode Controls */}
             <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
               <button 
                 onClick={() => setViewMode('month')} 
@@ -284,7 +300,6 @@
               </button>
             </div>
 
-            {/* Add Event Button */}
             <div>
               <button 
                 onClick={() => openModalForNew()}
