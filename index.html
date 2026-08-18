@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>יומן ניהול לו"ז משפחתי</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -10,12 +10,20 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Assistant', sans-serif; }
+    /* Custom scrollbar for clean UI */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+  </style>
 </head>
-<body class="bg-slate-100 font-sans text-slate-800">
+<body class="bg-slate-900 text-slate-800 antialiased min-h-screen selection:bg-indigo-500 selection:text-white">
   <div id="root"></div>
 
   <script type="text/babel">
-    const SUPABASE_URL = 'https://thnfcunjgodtkcuugbfg.supabase.co';
+    const SUPABASE_URL = 'https://thnfcunjgodtkuugbfg.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_FIo2bDyuizlE6cPf9HzMkw_r621ajwI';
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -24,6 +32,12 @@
       'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
       'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
     ];
+
+    const OWNER_COLORS = {
+      'דודי': { bg: 'bg-indigo-500', text: 'text-indigo-400', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+      'שיינדי': { bg: 'bg-rose-500', text: 'text-rose-400', badge: 'bg-rose-50 text-rose-700 border-rose-200' },
+      'כללי': { bg: 'bg-amber-500', text: 'text-amber-400', badge: 'bg-amber-50 text-amber-700 border-amber-200' }
+    };
 
     function CalendarApp() {
       const [currentDate, setCurrentDate] = React.useState(new Date());
@@ -136,17 +150,9 @@
 
       const todayStr = new Date().toISOString().split('T')[0];
 
-      const handleMonthChange = (e) => {
-        const newMonth = parseInt(e.target.value, 10);
+      const handleMonthChange = (delta) => {
         const next = new Date(currentDate);
-        next.setMonth(newMonth);
-        setCurrentDate(next);
-      };
-
-      const handleYearChange = (e) => {
-        const newYear = parseInt(e.target.value, 10);
-        const next = new Date(currentDate);
-        next.setFullYear(newYear);
+        next.setMonth(next.getMonth() + delta);
         setCurrentDate(next);
       };
 
@@ -181,304 +187,340 @@
 
       const renderDayTimeline = (targetDateStr) => {
         const dayEvs = events.filter(e => e.date === targetDateStr);
-        const allDayEvs = dayEvs.filter(e => e.time === 'כל היום' || !e.time);
-        const timedEvs = dayEvs.filter(e => e.time && e.time !== 'כל היום');
-        const hours = Array.from({ length: 24 }, (_, i) => i);
+
+        if (dayEvs.length === 0) {
+          return (
+            <div className="text-center py-12 px-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              <i className="fa-regular fa-calendar-check text-3xl text-slate-300 mb-2 block"></i>
+              <p className="text-sm font-semibold text-slate-500">אין אירועים מתוכננים ליום זה</p>
+              <button 
+                onClick={() => openModalForNew(targetDateStr)}
+                className="mt-3 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+              >
+                + הוסף אירוע חדש
+              </button>
+            </div>
+          );
+        }
 
         return (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <div className="text-center mb-4 pb-3 border-b border-slate-100">
-              <h3 className="font-black text-xl text-slate-800">ציר זמן יומי ל-{targetDateStr}</h3>
-            </div>
-
-            {allDayEvs.length > 0 && (
-              <div className="mb-4 bg-amber-50/70 border border-amber-200 rounded-xl p-3">
-                <span className="text-xs font-bold text-amber-800 block mb-2">אירועים לכל היום:</span>
-                <div className="space-y-1.5">
-                  {allDayEvs.map(ev => (
-                    <div key={ev.id} className="bg-white border-r-4 border-amber-500 p-3 rounded-lg shadow-sm flex justify-between items-start">
-                      <div>
-                        <div className="font-bold text-slate-800">{ev.title}</div>
-                        {ev.description && <div className="text-xs text-slate-600 mt-1">{ev.description}</div>}
-                        {ev.location && (
-                          <div className="text-xs text-indigo-600 mt-1 font-medium flex items-center gap-1">
-                            <i className="fa-solid fa-location-dot"></i>
-                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`} target="_blank" rel="noreferrer" className="hover:underline">
-                              {ev.location}
-                            </a>
-                          </div>
-                        )}
-                        <div className="text-[11px] text-slate-400 mt-0.5">משויך ל: {ev.owner}</div>
+          <div className="space-y-3">
+            {dayEvs.map(ev => {
+              const ownerStyle = OWNER_COLORS[ev.owner] || OWNER_COLORS['דודי'];
+              return (
+                <div 
+                  key={ev.id} 
+                  className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 hover:shadow-md transition flex flex-col justify-between gap-3 relative overflow-hidden"
+                >
+                  <div className={`absolute top-0 right-0 bottom-0 w-1.5 ${ownerStyle.bg}`}></div>
+                  
+                  <div className="flex justify-between items-start pr-2">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${ownerStyle.badge}`}>
+                          {ev.owner}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                          <i className="fa-regular fa-clock text-[10px]"></i>
+                          {ev.time} {ev.end_time ? `- ${ev.end_time}` : ''}
+                        </span>
                       </div>
-                      <div className="flex space-x-2 space-x-reverse text-slate-400">
-                        <button onClick={() => openModalForEdit(ev)} className="hover:text-indigo-600"><i className="fa-solid fa-pen"></i></button>
-                        <button onClick={() => handleDeleteEvent(ev.id)} className="hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
-                      </div>
+                      <h4 className="font-bold text-slate-800 text-base leading-snug">{ev.title}</h4>
+                      {ev.description && (
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{ev.description}</p>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            <div className="space-y-1 max-h-[550px] overflow-y-auto pr-1">
-              {hours.map(hourNum => {
-                const hourPrefix = String(hourNum).padStart(2, '0');
-                const hourEvs = timedEvs.filter(e => e.time && e.time.startsWith(hourPrefix));
-
-                return (
-                  <div key={hourNum} className="flex border-b border-slate-100 py-2.5 min-h-[55px] items-start">
-                    <div className="w-16 font-mono text-xs font-bold text-slate-400 pt-1">
-                      {hourPrefix}:00
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      {hourEvs.map(ev => (
-                        <div key={ev.id} className="bg-indigo-50/80 border-r-4 border-indigo-600 p-3 rounded-xl shadow-sm flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-bold bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded-md">
-                                {ev.time} {ev.end_time ? `- ${ev.end_time}` : ''}
-                              </span>
-                              <span className="font-bold text-slate-800 text-sm">{ev.title}</span>
-                              <span className="text-xs text-slate-500">({ev.owner})</span>
-                            </div>
-                            {ev.description && (
-                              <p className="text-xs text-slate-600 mr-1 leading-relaxed mb-1">{ev.description}</p>
-                            )}
-                            {ev.location && (
-                              <div className="text-xs text-indigo-600 font-medium flex items-center gap-1">
-                                <i className="fa-solid fa-location-dot"></i>
-                                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`} target="_blank" rel="noreferrer" className="hover:underline">
-                                  {ev.location}
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex space-x-2 space-x-reverse text-slate-400">
-                            <button onClick={() => openModalForEdit(ev)} className="hover:text-indigo-600"><i className="fa-solid fa-pen"></i></button>
-                            <button onClick={() => handleDeleteEvent(ev.id)} className="hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="flex items-center gap-1 text-slate-400 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+                      <button onClick={() => openModalForEdit(ev)} className="w-7 h-7 flex items-center justify-center hover:text-indigo-600 hover:bg-white rounded-lg transition">
+                        <i className="fa-solid fa-pen text-xs"></i>
+                      </button>
+                      <button onClick={() => handleDeleteEvent(ev.id)} className="w-7 h-7 flex items-center justify-center hover:text-rose-600 hover:bg-white rounded-lg transition">
+                        <i className="fa-solid fa-trash text-xs"></i>
+                      </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {ev.location && (
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="text-xs text-indigo-600 font-semibold bg-indigo-50/60 hover:bg-indigo-100/80 px-3 py-1.5 rounded-xl inline-flex items-center gap-1.5 w-fit transition mr-2"
+                    >
+                      <i className="fa-solid fa-location-dot text-indigo-500"></i>
+                      <span className="truncate max-w-[220px]">{ev.location}</span>
+                    </a>
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
       };
 
-      const yearsList = Array.from({ length: 7 }, (_, i) => 2024 + i);
-
       return (
-        <div className="max-w-5xl mx-auto p-4">
-          <header className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6 flex flex-col items-center text-center gap-4">
-            <div className="flex items-center space-x-3 space-x-reverse justify-center">
-              <h1 className="text-2xl font-black text-indigo-900"><i className="fa-regular fa-calendar-days text-indigo-600 ml-2"></i>יומן ניהול לו"ז משפחתי</h1>
-            </div>
-            
-            <div className="flex items-center gap-3 bg-indigo-50/70 border border-indigo-100 px-4 py-2 rounded-2xl">
-              <select 
-                value={currentDate.getMonth()} 
-                onChange={handleMonthChange}
-                className="bg-white text-indigo-900 font-bold text-sm px-3 py-1.5 rounded-xl border border-indigo-200 outline-none cursor-pointer"
-              >
-                {HEBREW_MONTHS.map((m, idx) => (
-                  <option key={idx} value={idx}>{m}</option>
-                ))}
-              </select>
+        <div className="min-h-screen bg-slate-900 pb-12">
+          {/* Top Luxurious Header */}
+          <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3">
+            <div className="max-w-md mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                  <i className="fa-regular fa-calendar-check text-lg"></i>
+                </div>
+                <div>
+                  <h1 className="text-base font-extrabold text-white tracking-wide leading-none">יומן משפחתי</h1>
+                  <span className="text-[10px] text-slate-400 font-medium">לו"ז מסונכרן בזמן אמת</span>
+                </div>
+              </div>
 
-              <select 
-                value={currentDate.getFullYear()} 
-                onChange={handleYearChange}
-                className="bg-white text-indigo-900 font-bold text-sm px-3 py-1.5 rounded-xl border border-indigo-200 outline-none cursor-pointer"
-              >
-                {yearsList.map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-
-              <button 
-                onClick={() => setCurrentDate(new Date())} 
-                className="text-xs font-bold text-indigo-600 px-3 py-1.5 bg-white border border-indigo-200 rounded-xl hover:bg-indigo-100 transition"
-              >
-                חזור להיום
-              </button>
-            </div>
-
-            <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
-              <button 
-                onClick={() => setViewMode('month')} 
-                className={`px-4 py-2 rounded-lg transition ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                תצוגה חודשית
-              </button>
-              <button 
-                onClick={() => setViewMode('week')} 
-                className={`px-4 py-2 rounded-lg transition ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                תצוגה שבועית
-              </button>
-              <button 
-                onClick={() => setViewMode('day')} 
-                className={`px-4 py-2 rounded-lg transition ${viewMode === 'day' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                תצוגה יומית
-              </button>
-            </div>
-
-            <div>
               <button 
                 onClick={() => openModalForNew()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition shadow-sm"
+                className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center gap-1.5"
               >
-                + אירוע חדש
+                <i className="fa-solid fa-plus text-xs"></i>
+                <span>אירוע חדש</span>
               </button>
             </div>
           </header>
 
-          {/* Daily View */}
-          {viewMode === 'day' && renderDayTimeline(currentDate.toISOString().split('T')[0])}
+          {/* Main App Container */}
+          <main className="max-w-md mx-auto px-3 pt-4 space-y-4">
 
-          {/* Weekly View */}
-          {viewMode === 'week' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-              <div className="grid grid-cols-7 gap-2 text-center font-bold text-xs text-slate-500 mb-2">
-                <div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div>
+            {/* Navigation & Month Selector Card */}
+            <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl p-4 border border-slate-700/60 shadow-xl space-y-3">
+              
+              <div className="flex items-center justify-between">
+                <button 
+                  onClick={() => handleMonthChange(-1)} 
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-700/50 hover:bg-slate-700 text-slate-300 transition active:scale-90"
+                >
+                  <i className="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+
+                <div className="text-center">
+                  <h2 className="text-lg font-black text-white tracking-wide">
+                    {HEBREW_MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
+                  </h2>
+                  <button 
+                    onClick={() => setCurrentDate(new Date())} 
+                    className="text-[11px] text-indigo-400 font-semibold hover:underline"
+                  >
+                    חזור להיום
+                  </button>
+                </div>
+
+                <button 
+                  onClick={() => handleMonthChange(1)} 
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-700/50 hover:bg-slate-700 text-slate-300 transition active:scale-90"
+                >
+                  <i className="fa-solid fa-chevron-left text-xs"></i>
+                </button>
               </div>
-              <div className="grid grid-cols-7 gap-2">
-                {getWeekDays().map((d, idx) => {
-                  const dStr = d.toISOString().split('T')[0];
-                  const isToday = dStr === todayStr;
-                  const dayEvents = events.filter(e => e.date === dStr);
 
-                  return (
-                    <div 
-                      key={idx}
-                      onClick={() => setSelectedDateEvents({ date: dStr, events: dayEvents })}
-                      className={`border min-h-[140px] p-2 rounded-xl cursor-pointer transition flex flex-col justify-between ${
-                        isToday 
-                          ? 'bg-indigo-50/80 border-indigo-500 ring-2 ring-indigo-400' 
-                          : 'border-slate-200 hover:border-indigo-300 bg-white'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center mb-1">
-                        <span className={`text-xs font-black ${isToday ? 'bg-indigo-600 text-white px-2 py-0.5 rounded-full' : 'text-slate-600'}`}>
-                          {d.getDate()}
+              {/* View Switcher Tabs */}
+              <div className="grid grid-cols-3 gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/50 text-xs font-bold">
+                <button 
+                  onClick={() => setViewMode('month')} 
+                  className={`py-2 rounded-lg transition ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                  חודש
+                </button>
+                <button 
+                  onClick={() => setViewMode('week')} 
+                  className={`py-2 rounded-lg transition ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                  שבוע
+                </button>
+                <button 
+                  onClick={() => setViewMode('day')} 
+                  className={`py-2 rounded-lg transition ${viewMode === 'day' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                  יום
+                </button>
+              </div>
+            </div>
+
+            {/* Monthly Grid View */}
+            {viewMode === 'month' && (
+              <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl p-3 border border-slate-700/60 shadow-xl space-y-2">
+                <div className="grid grid-cols-7 text-center font-extrabold text-[11px] text-slate-400 pb-1 border-b border-slate-700/50">
+                  <div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div>
+                </div>
+
+                <div className="grid grid-cols-7 gap-1">
+                  {getDaysInMonthGrid().map((cell, i) => {
+                    if (!cell) return <div key={`empty-${i}`} className="h-12 bg-slate-900/20 rounded-xl"></div>;
+
+                    const { day, dStr } = cell;
+                    const isToday = dStr === todayStr;
+                    const isSelected = selectedDateEvents?.date === dStr;
+                    const dayEvents = events.filter(e => e.date === dStr);
+
+                    return (
+                      <div 
+                        key={dStr} 
+                        onClick={() => setSelectedDateEvents({ date: dStr, events: dayEvents })}
+                        className={`h-12 rounded-xl p-1 cursor-pointer transition flex flex-col justify-between items-center relative ${
+                          isSelected
+                            ? 'bg-indigo-600/30 border-2 border-indigo-500 shadow-md'
+                            : isToday 
+                            ? 'bg-indigo-950/80 border border-indigo-500/80' 
+                            : 'bg-slate-900/60 hover:bg-slate-700/50 border border-slate-700/40'
+                        }`}
+                      >
+                        <span className={`text-xs font-black ${
+                          isToday 
+                            ? 'bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center' 
+                            : isSelected ? 'text-indigo-300' : 'text-slate-200'
+                        }`}>
+                          {day}
                         </span>
+
+                        {/* Clean Dot Indicators for events */}
+                        <div className="flex items-center justify-center gap-0.5 max-w-full overflow-hidden px-0.5 pb-0.5">
+                          {dayEvents.slice(0, 3).map((ev, idx) => {
+                            const ownerStyle = OWNER_COLORS[ev.owner] || OWNER_COLORS['דודי'];
+                            return (
+                              <span key={idx} className={`w-1.5 h-1.5 rounded-full ${ownerStyle.bg} shadow-sm`}></span>
+                            );
+                          })}
+                          {dayEvents.length > 3 && (
+                            <span className="w-1 h-1 rounded-full bg-slate-400"></span>
+                          )}
+                        </div>
                       </div>
-                      <div className="space-y-1 overflow-y-auto max-h-[100px]">
-                        {dayEvents.map(ev => (
-                          <div key={ev.id} className="text-[11px] bg-indigo-100/70 text-indigo-900 font-semibold p-1.5 rounded-lg truncate">
-                            {ev.title}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Monthly View */}
-          {viewMode === 'month' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-              <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-400 mb-2">
-                <div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div>
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {getDaysInMonthGrid().map((cell, i) => {
-                  if (!cell) return <div key={`empty-${i}`} className="min-h-[85px] bg-slate-50/50 rounded-xl border border-transparent"></div>;
-
-                  const { day, dStr } = cell;
-                  const isToday = dStr === todayStr;
-                  const dayEvents = events.filter(e => e.date === dStr);
-
-                  return (
-                    <div 
-                      key={dStr} 
-                      onClick={() => setSelectedDateEvents({ date: dStr, events: dayEvents })}
-                      className={`border min-h-[85px] p-1.5 rounded-xl cursor-pointer transition flex flex-col justify-between ${
-                        isToday 
-                          ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-400' 
-                          : 'border-slate-100 hover:border-indigo-300 bg-white'
-                      }`}
-                    >
-                      <span className={`text-xs font-bold ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full self-start' : 'text-slate-500'}`}>
-                        {day}
-                      </span>
-                      <div className="space-y-1">
-                        {dayEvents.slice(0, 2).map(ev => (
-                          <div key={ev.id} className="text-[10px] bg-indigo-100/80 text-indigo-900 font-medium p-1 rounded truncate">
-                            {ev.title}
-                          </div>
-                        ))}
-                        {dayEvents.length > 2 && (
-                          <span className="text-[9px] text-slate-400 font-bold block">+ עוד {dayEvents.length - 2}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Selected Date Modal */}
-          {selectedDateEvents && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5">
-                <div className="flex justify-between items-center mb-4 border-b pb-2">
-                  <h3 className="font-bold text-lg text-slate-800">אירועים ל-{selectedDateEvents.date}</h3>
-                  <button onClick={() => setSelectedDateEvents(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark text-lg"></i></button>
+                    );
+                  })}
                 </div>
-                {renderDayTimeline(selectedDateEvents.date)}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Add / Edit Event Modal */}
+            {/* Selected Day Agenda Drawer (Clean & Readable) */}
+            {viewMode === 'month' && (
+              <div className="bg-slate-100 rounded-3xl p-4 shadow-2xl space-y-3">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">לו"ז ליום</span>
+                    <span className="text-sm font-black text-slate-900 bg-white px-2.5 py-0.5 rounded-lg border border-slate-200 shadow-sm">
+                      {selectedDateEvents ? selectedDateEvents.date : todayStr}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => openModalForNew(selectedDateEvents ? selectedDateEvents.date : todayStr)}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+                  >
+                    + הוסף
+                  </button>
+                </div>
+
+                {renderDayTimeline(selectedDateEvents ? selectedDateEvents.date : todayStr)}
+              </div>
+            )}
+
+            {/* Weekly View Mobile */}
+            {viewMode === 'week' && (
+              <div className="bg-slate-100 rounded-3xl p-4 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between text-slate-900 font-extrabold text-sm border-b pb-2">
+                  <span>מבט שבועי</span>
+                  <span className="text-xs font-normal text-slate-500">7 ימים מרוכזים</span>
+                </div>
+                
+                <div className="space-y-3">
+                  {getWeekDays().map((d, idx) => {
+                    const dStr = d.toISOString().split('T')[0];
+                    const isToday = dStr === todayStr;
+                    const dayEvents = events.filter(e => e.date === dStr);
+
+                    return (
+                      <div key={idx} className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-black px-2 py-0.5 rounded-md ${isToday ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                              יום {['א\'','ב\'','ג\'','ד\'','ה\'','ו\'','ש\''][d.getDay()]} ({d.getDate()})
+                            </span>
+                          </div>
+                          <button onClick={() => openModalForNew(dStr)} className="text-[11px] font-bold text-indigo-600">
+                            + הוסף
+                          </button>
+                        </div>
+                        {renderDayTimeline(dStr)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Daily View Mobile */}
+            {viewMode === 'day' && (
+              <div className="bg-slate-100 rounded-3xl p-4 shadow-2xl space-y-3">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                  <span className="text-sm font-black text-slate-900">
+                    תצוגה יומית – {currentDate.toISOString().split('T')[0]}
+                  </span>
+                  <button onClick={() => openModalForNew(currentDate.toISOString().split('T')[0])} className="text-xs font-bold text-indigo-600">
+                    + הוסף אירוע
+                  </button>
+                </div>
+                {renderDayTimeline(currentDate.toISOString().split('T')[0])}
+              </div>
+            )}
+
+          </main>
+
+          {/* Add / Edit Event Modal (Luxury Mobile Sheet) */}
           {isModalOpen && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-lg text-slate-800">{editingEventId ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
-                  <button onClick={closeModal} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark text-lg"></i></button>
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+              <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md p-6 animate-in slide-in-from-bottom duration-200 max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                      <i className="fa-solid fa-pen-to-square text-sm"></i>
+                    </div>
+                    <h3 className="font-extrabold text-lg text-slate-800">{editingEventId ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
+                  </div>
+                  <button onClick={closeModal} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:text-slate-600">
+                    <i className="fa-solid fa-xmark"></i>
+                  </button>
                 </div>
+
                 <form onSubmit={handleSaveEvent} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">כותרת האירוע *</label>
                     <input 
                       type="text" 
-                      placeholder="הכנס כותרת..." 
+                      placeholder="מה מתכננים?" 
                       value={title} 
                       onChange={e => setTitle(e.target.value)} 
                       required 
-                      className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-indigo-600 focus:bg-white transition"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">תיאור (אופציונלי)</label>
                     <textarea 
-                      placeholder="פירוט או הערות נוספות..." 
+                      placeholder="פרטים נוספים..." 
                       value={description} 
                       onChange={e => setDescription(e.target.value)} 
                       rows="2"
-                      className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:border-indigo-500 resize-none"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-indigo-600 focus:bg-white transition resize-none"
                     ></textarea>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">כתובת / מיקום</label>
-                    <input 
-                      type="text" 
-                      placeholder="הכנס כתובת או שם המקום..." 
-                      value={location} 
-                      onChange={e => setLocation(e.target.value)} 
-                      className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:border-indigo-500"
-                    />
+                    <div className="relative">
+                      <i className="fa-solid fa-location-dot absolute right-3 top-3.5 text-slate-400 text-xs"></i>
+                      <input 
+                        type="text" 
+                        placeholder="רחוב, עיר או שם מקום..." 
+                        value={location} 
+                        onChange={e => setLocation(e.target.value)} 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pr-8 pl-3 text-sm outline-none focus:border-indigo-600 focus:bg-white transition"
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -488,59 +530,68 @@
                       value={dateStr} 
                       onChange={e => setDateStr(e.target.value)} 
                       required 
-                      className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-indigo-600 focus:bg-white transition"
                     />
                   </div>
 
-                  <label className="flex items-center space-x-2 space-x-reverse text-sm font-semibold text-slate-600 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={isAllDay} 
-                      onChange={e => setIsAllDay(e.target.checked)} 
-                      className="rounded text-indigo-600"
-                    />
-                    <span>אירוע לכל היום</span>
-                  </label>
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 space-y-3">
+                    <label className="flex items-center space-x-2 space-x-reverse text-sm font-semibold text-slate-700 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={isAllDay} 
+                        onChange={e => setIsAllDay(e.target.checked)} 
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>אירוע לכל היום</span>
+                    </label>
 
-                  {!isAllDay && (
-                    <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">משעה</label>
-                        <input 
-                          type="time" 
-                          value={startTime} 
-                          onChange={e => setStartTime(e.target.value)} 
-                          className="w-full border border-slate-200 rounded-xl p-2 text-sm outline-none bg-white"
-                        />
+                    {!isAllDay && (
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 mb-1">משעה</label>
+                          <input 
+                            type="time" 
+                            value={startTime} 
+                            onChange={e => setStartTime(e.target.value)} 
+                            className="w-full bg-white border border-slate-200 rounded-xl p-2 text-sm outline-none focus:border-indigo-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 mb-1">עד שעה</label>
+                          <input 
+                            type="time" 
+                            value={endTime} 
+                            onChange={e => setEndTime(e.target.value)} 
+                            className="w-full bg-white border border-slate-200 rounded-xl p-2 text-sm outline-none focus:border-indigo-600"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">עד שעה</label>
-                        <input 
-                          type="time" 
-                          value={endTime} 
-                          onChange={e => setEndTime(e.target.value)} 
-                          className="w-full border border-slate-200 rounded-xl p-2 text-sm outline-none bg-white"
-                        />
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">משויך ל:</label>
-                    <select 
-                      value={owner} 
-                      onChange={e => setOwner(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none"
-                    >
-                      <option value="דודי">דודי</option>
-                      <option value="שיינדי">שיינדי</option>
-                      <option value="כללי">משותף</option>
-                    </select>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['דודי', 'שיינדי', 'כללי'].map((name) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => setOwner(name)}
+                          className={`py-2.5 rounded-xl text-xs font-bold border transition ${
+                            owner === name 
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <button 
                     type="submit" 
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-sm"
+                    className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-2xl transition shadow-lg shadow-indigo-600/30 text-sm active:scale-[0.98] mt-2"
                   >
                     שמור אירוע
                   </button>
