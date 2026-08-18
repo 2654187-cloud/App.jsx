@@ -1,375 +1,342 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>היומן המשותף</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel compiler for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Supabase JS Client -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>יומן ניהול לו"ז משפחתי</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
 </head>
-<body class="bg-slate-50">
-    <div id="root"></div>
+<body class="bg-slate-100 font-sans text-slate-800">
+  <div id="root"></div>
 
-    <script type="text/babel">
-        // --- הגדרות חיבור ל-SUPABASE ---
-        const SUPABASE_URL = 'https://thnfcunjgodtkcuugbfg.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_FIo2bDyuizlE6cPf9HzMkw_r621ajwI';
-        const CITY_NAME = 'Ashdod';
-        
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  <script type="text/babel">
+    const SUPABASE_URL = 'https://thnfcunjgodtkuugbfg.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_FIo2bDyuizlE6cPf9HzMkw_r621ajwI';
+    const CITY_NAME = 'Ashdod';
 
-        function CalendarApp() {
-            const [currentDate, setCurrentDate] = React.useState(new Date());
-            const [selectedDayData, setSelectedDayData] = React.useState(null);
-            const [dayTimes, setDayTimes] = React.useState({});
-            const [activeFilter, setActiveFilter] = React.useState('all');
-            const [events, setEvents] = React.useState([]);
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Form states
-            const [newTitle, setNewTitle] = React.useState('');
-            const [itemType, setItemType] = React.useState('event'); // event | meeting | task
-            const [isAllDay, setIsAllDay] = React.useState(true);
-            const [startTime, setStartTime] = React.useState('');
-            const [endTime, setEndTime] = React.useState('');
-            const [location, setLocation] = React.useState('');
-            const [newOwner, setNewOwner] = React.useState('dudi');
+    function CalendarApp() {
+      const [currentDate, setCurrentDate] = React.useState(new Date());
+      const [viewMode, setViewMode] = React.useState('month'); // 'month' | 'week' | 'day'
+      const [events, setEvents] = React.useState([]);
+      const [selectedDateEvents, setSelectedDateEvents] = React.useState(null);
+      const [isModalOpen, setIsModalOpen] = React.useState(false);
 
-            // Today's date comparison string (YYYY-MM-DD)
-            const todayObj = new Date();
-            const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+      // Form state
+      const [editingEventId, setEditingEventId] = React.useState(null);
+      const [title, setTitle] = React.useState('');
+      const [dateStr, setDateStr] = React.useState('');
+      const [time, setTime] = React.useState('10:00');
+      const [isAllDay, setIsAllDay] = React.useState(false);
+      const [owner, setOwner] = React.useState('דודי');
+      const [category, setCategory] = React.useState('אירוע');
+      const [location, setLocation] = React.useState('');
 
-            // Roll over uncompleted tasks to today
-            const rolloverUncompletedTasks = async (fetchedEvents) => {
-                const overdueTasks = fetchedEvents.filter(e => 
-                    e.category === 'task' && 
-                    !e.is_completed && 
-                    e.date < todayStr
-                );
+      React.useEffect(() => {
+        fetchEvents();
+      }, []);
 
-                if (overdueTasks.length > 0) {
-                    for (let task of overdueTasks) {
-                        await supabase.from('events').update({ date: todayStr }).eq('id', task.id);
-                    }
-                    fetchEvents();
-                }
-            };
+      const fetchEvents = async () => {
+        const { data, error } = await supabase.from('events').select('*');
+        if (!error && data) {
+          setEvents(data);
+        }
+      };
 
-            const fetchEvents = async () => {
-                const { data, error } = await supabase.from('events').select('*');
-                if (!error && data) {
-                    setEvents(data);
-                    rolloverUncompletedTasks(data);
-                }
-            };
+      const handleSaveEvent = async (e) => {
+        e.preventDefault();
+        const payload = {
+          title,
+          date: dateStr,
+          time: isAllDay ? 'כל היום' : time,
+          owner,
+          category,
+          location,
+          is_completed: false
+        };
 
-            React.useEffect(() => {
-                fetchEvents();
-            }, []);
-
-            React.useEffect(() => {
-                const year = currentDate.getFullYear();
-                const month = currentDate.getMonth() + 1;
-                fetch(`https://www.hebcal.com/zmanim?cfg=json&city=${CITY_NAME}&month=${year}-${month}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data && data.times) setDayTimes(data.times);
-                    })
-                    .catch(err => console.error('Error fetching times:', err));
-            }, [currentDate]);
-
-            const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-            const firstDayOfWeek = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-
-            const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-            const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-
-            const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
-
-            const filteredEvents = events.filter(ev => {
-                if (activeFilter === 'all') return true;
-                return ev.owner === activeFilter;
-            });
-
-            const toggleTaskCompletion = async (eventId, currentStatus) => {
-                const { error } = await supabase.from('events').update({ is_completed: !currentStatus }).eq('id', eventId);
-                if (!error) fetchEvents();
-            };
-
-            const handleAddEvent = async (e) => {
-                e.preventDefault();
-                if (!newTitle.trim() || !selectedDayData) return;
-
-                const timeDisplay = isAllDay ? 'כל היום' : `${startTime}${endTime ? ' - ' + endTime : ''}`;
-
-                const newEvent = {
-                    title: newTitle,
-                    date: selectedDayData.dateStr,
-                    time: timeDisplay,
-                    owner: newOwner,
-                    category: itemType,
-                    location: location.trim() ? location : null,
-                    is_completed: false
-                };
-
-                const { data, error } = await supabase.from('events').insert([newEvent]).select();
-                if (!error) {
-                    fetchEvents();
-                    setNewTitle('');
-                    setLocation('');
-                    setStartTime('');
-                    setEndTime('');
-                    setIsAllDay(true);
-                    setSelectedDayData(null);
-                } else {
-                    console.error('Save error details:', error);
-                    alert(`שגיאה בשמירה: ${error.message || 'ודא שהרצת את ה-SQL ב-Supabase'}`);
-                }
-            };
-
-            return (
-                <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col font-sans pb-10">
-                    {/* Header */}
-                    <div className="bg-white p-4 shadow-sm border-b sticky top-0 z-10 flex flex-col gap-3">
-                        <div className="flex justify-between items-center">
-                            <button onClick={prevMonth} className="p-2 bg-slate-100 rounded-lg text-slate-600 font-bold">◀</button>
-                            <h1 className="text-xl font-bold text-slate-800">
-                                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-                            </h1>
-                            <button onClick={nextMonth} className="p-2 bg-slate-100 rounded-lg text-slate-600 font-bold">▶</button>
-                        </div>
-
-                        {/* Filter Tabs */}
-                        <div className="flex justify-around bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-                            <button 
-                                onClick={() => setActiveFilter('all')}
-                                className={`flex-1 py-1.5 rounded-lg transition ${activeFilter === 'all' ? 'bg-slate-800 text-white shadow' : 'text-slate-600'}`}>
-                                הכל
-                            </button>
-                            <button 
-                                onClick={() => setActiveFilter('dudi')}
-                                className={`flex-1 py-1.5 rounded-lg transition ${activeFilter === 'dudi' ? 'bg-blue-600 text-white shadow' : 'text-slate-600'}`}>
-                                דודי
-                            </button>
-                            <button 
-                                onClick={() => setActiveFilter('wife')}
-                                className={`flex-1 py-1.5 rounded-lg transition ${activeFilter === 'wife' ? 'bg-purple-600 text-white shadow' : 'text-slate-600'}`}>
-                                שיינדי
-                            </button>
-                            <button 
-                                onClick={() => setActiveFilter('shared')}
-                                className={`flex-1 py-1.5 rounded-lg transition ${activeFilter === 'shared' ? 'bg-emerald-600 text-white shadow' : 'text-slate-600'}`}>
-                                משותף
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Days Header */}
-                    <div className="grid grid-cols-7 gap-1 p-2 text-center text-xs font-bold text-slate-400 border-b bg-white">
-                        <div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div>
-                    </div>
-
-                    {/* Calendar Grid */}
-                    <div className="grid grid-cols-7 gap-1 p-2 flex-grow">
-                        {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                            <div key={`empty-${i}`} className="h-20 bg-transparent"></div>
-                        ))}
-
-                        {Array.from({ length: daysInMonth }).map((_, i) => {
-                            const dayNum = i + 1;
-                            const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                            const dayEvents = filteredEvents.filter(e => e.date === dateStr);
-                            const sunsetTime = dayTimes[dateStr] || dayTimes[`${dateStr}T00:00:00`]?.[0];
-                            const isToday = dateStr === todayStr;
-
-                            return (
-                                <div 
-                                    key={dayNum} 
-                                    onClick={() => setSelectedDayData({ dayNum, dateStr, events: dayEvents })}
-                                    className={`h-20 rounded-lg p-1 border flex flex-col justify-between shadow-sm cursor-pointer active:scale-95 transition ${
-                                        isToday 
-                                            ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-300' 
-                                            : 'bg-white border-slate-100'
-                                    }`}>
-                                    
-                                    <div className="flex justify-between items-center">
-                                        <span className={`text-xs font-bold px-1 rounded ${isToday ? 'bg-amber-400 text-slate-900' : 'text-slate-700'}`}>
-                                            {dayNum}
-                                        </span>
-                                    </div>
-                                    
-                                    <div className="flex flex-col gap-0.5 overflow-hidden">
-                                        {dayEvents.slice(0, 2).map((ev, idx) => (
-                                            <div 
-                                                key={idx} 
-                                                className={`text-[9px] px-1 rounded truncate text-white ${
-                                                    ev.is_completed ? 'line-through opacity-50 bg-slate-400' :
-                                                    ev.owner === 'dudi' ? 'bg-blue-500' :
-                                                    ev.owner === 'wife' ? 'bg-purple-500' : 'bg-emerald-500'
-                                                }`}>
-                                                {ev.category === 'task' ? '☑ ' : ev.category === 'meeting' ? '🤝 ' : ''}{ev.title}
-                                            </div>
-                                        ))}
-                                        {dayEvents.length > 2 && (
-                                            <span className="text-[8px] text-slate-400 font-bold">+{dayEvents.length - 2} נוספים</span>
-                                        )}
-                                    </div>
-
-                                    {sunsetTime && (
-                                        <div className="text-[8px] text-amber-600 font-medium">
-                                            🌅 {new Date(sunsetTime).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Modal for Day Details & Add Item */}
-                    {selectedDayData && (
-                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end justify-center z-50">
-                            <div className="bg-white w-full max-w-md rounded-t-2xl p-5 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
-                                <div className="flex justify-between items-center border-b pb-2">
-                                    <h3 className="font-bold text-lg text-slate-800">תכנון ל-{selectedDayData.dateStr}</h3>
-                                    <button onClick={() => setSelectedDayData(null)} className="text-slate-400 font-bold text-xl">✕</button>
-                                </div>
-
-                                {/* List Items */}
-                                <div className="flex flex-col gap-2">
-                                    {events.filter(e => e.date === selectedDayData.dateStr).length === 0 ? (
-                                        <p className="text-sm text-slate-400 text-center py-2">אין אירועים או משימות ליום זה</p>
-                                    ) : (
-                                        events.filter(e => e.date === selectedDayData.dateStr).map((ev, idx) => (
-                                            <div key={idx} className="p-3 rounded-xl bg-slate-50 border flex justify-between items-center">
-                                                <div className="flex items-center gap-2">
-                                                    {ev.category === 'task' && (
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={ev.is_completed || false} 
-                                                            onChange={() => toggleTaskCompletion(ev.id, ev.is_completed)}
-                                                            className="w-4 h-4 rounded text-blue-600"
-                                                        />
-                                                    )}
-                                                    <div>
-                                                        <p className={`font-semibold text-sm text-slate-800 ${ev.is_completed ? 'line-through text-slate-400' : ''}`}>
-                                                            {ev.title}
-                                                        </p>
-                                                        <p className="text-xs text-slate-400">
-                                                            {ev.time} • {ev.owner === 'dudi' ? 'דודי' : ev.owner === 'wife' ? 'שיינדי' : 'משותף'}
-                                                            {ev.location && ` • 📍 ${ev.location}`}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <span className="text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-600">
-                                                    {ev.category === 'task' ? 'משימה' : ev.category === 'meeting' ? 'פגישה' : 'אירוע'}
-                                                </span>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-
-                                {/* Add Form */}
-                                <form onSubmit={handleAddEvent} className="border-t pt-3 flex flex-col gap-3">
-                                    <h4 className="font-bold text-sm text-slate-700">הוספה חדשה</h4>
-                                    
-                                    {/* Item Type Selector */}
-                                    <div className="flex bg-slate-100 p-1 rounded-lg text-xs font-semibold">
-                                        <button 
-                                            type="button"
-                                            onClick={() => setItemType('event')}
-                                            className={`flex-1 py-1 rounded-md ${itemType === 'event' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
-                                            אירוע
-                                        </button>
-                                        <button 
-                                            type="button"
-                                            onClick={() => setItemType('meeting')}
-                                            className={`flex-1 py-1 rounded-md ${itemType === 'meeting' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
-                                            פגישה
-                                        </button>
-                                        <button 
-                                            type="button"
-                                            onClick={() => setItemType('task')}
-                                            className={`flex-1 py-1 rounded-md ${itemType === 'task' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
-                                            משימה
-                                        </button>
-                                    </div>
-
-                                    <input 
-                                        type="text" 
-                                        placeholder="כותרת" 
-                                        value={newTitle} 
-                                        onChange={(e) => setNewTitle(e.target.value)}
-                                        className="w-full p-2 text-sm border rounded-lg focus:outline-none"
-                                        required
-                                    />
-
-                                    {/* Time selection */}
-                                    <div className="flex flex-col gap-2 bg-slate-50 p-2 rounded-lg border">
-                                        <label className="flex items-center gap-2 text-xs text-slate-600 font-bold cursor-pointer">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={isAllDay} 
-                                                onChange={(e) => setIsAllDay(e.target.checked)} 
-                                            />
-                                            כל היום
-                                        </label>
-                                        {!isAllDay && (
-                                            <div className="flex gap-2">
-                                                <input 
-                                                    type="time" 
-                                                    value={startTime} 
-                                                    onChange={(e) => setStartTime(e.target.value)} 
-                                                    className="flex-1 p-1.5 text-xs border rounded bg-white"
-                                                    required
-                                                />
-                                                <span className="text-xs self-center">עד</span>
-                                                <input 
-                                                    type="time" 
-                                                    value={endTime} 
-                                                    onChange={(e) => setEndTime(e.target.value)} 
-                                                    className="flex-1 p-1.5 text-xs border rounded bg-white"
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <input 
-                                        type="text" 
-                                        placeholder="מיקום (אופציונלי)" 
-                                        value={location} 
-                                        onChange={(e) => setLocation(e.target.value)}
-                                        className="w-full p-2 text-sm border rounded-lg focus:outline-none"
-                                    />
-
-                                    <select 
-                                        value={newOwner} 
-                                        onChange={(e) => setNewOwner(e.target.value)}
-                                        className="w-full p-2 text-sm border rounded-lg focus:outline-none bg-white">
-                                        <option value="dudi">דודי</option>
-                                        <option value="wife">שיינדי</option>
-                                        <option value="shared">משותף</option>
-                                    </select>
-
-                                    <button 
-                                        type="submit" 
-                                        className="w-full py-2 bg-slate-800 text-white text-sm font-bold rounded-lg shadow active:scale-95 transition">
-                                        שמור
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
+        if (editingEventId) {
+          const { error } = await supabase.from('events').update(payload).eq('id', editingEventId);
+          if (!error) fetchEvents();
+        } else {
+          const { error } = await supabase.from('events').insert([payload]);
+          if (!error) fetchEvents();
         }
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<CalendarApp />);
-    </script>
+        closeModal();
+      };
+
+      const handleDeleteEvent = async (id) => {
+        if (confirm('האם למחוק אירוע זה?')) {
+          const { error } = await supabase.from('events').delete().eq('id', id);
+          if (!error) {
+            fetchEvents();
+            if (selectedDateEvents) {
+              setSelectedDateEvents(prev => prev.filter(e => e.id !== id));
+            }
+          }
+        }
+      };
+
+      const openModalForNew = (defaultDate = '') => {
+        setEditingEventId(null);
+        setTitle('');
+        setDateStr(defaultDate || new Date().toISOString().split('T')[0]);
+        setTime('10:00');
+        setIsAllDay(false);
+        setOwner('דודי');
+        setCategory('אירוע');
+        setLocation('');
+        setIsModalOpen(true);
+      };
+
+      const openModalForEdit = (ev) => {
+        setEditingEventId(ev.id);
+        setTitle(ev.title || '');
+        setDateStr(ev.date || '');
+        if (ev.time === 'כל היום') {
+          setIsAllDay(true);
+          setTime('10:00');
+        } else {
+          setIsAllDay(false);
+          setTime(ev.time || '10:00');
+        }
+        setOwner(ev.owner || 'דודי');
+        setCategory(ev.category || 'אירוע');
+        setLocation(ev.location || '');
+        setIsModalOpen(true);
+      };
+
+      const closeModal = () => {
+        setIsModalOpen(false);
+        setEditingEventId(null);
+      };
+
+      // Format helpers
+      const getFormattedMonth = () => {
+        return currentDate.toLocaleString('he-IL', { month: 'long', year: 'numeric' });
+      };
+
+      const navigateDate = (amount) => {
+        const next = new Date(currentDate);
+        if (viewMode === 'month') next.setMonth(next.getMonth() + amount);
+        if (viewMode === 'week') next.setDate(next.getDate() + (amount * 7));
+        if (viewMode === 'day') next.setDate(next.getDate() + amount);
+        setCurrentDate(next);
+      };
+
+      // Render Day Timeline
+      const renderDayTimeline = (targetDateStr) => {
+        const dayEvs = events.filter(e => e.date === targetDateStr);
+        const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg text-slate-700">ציר זמן שעתי ל-{targetDateStr}</h3>
+              <button 
+                onClick={() => openModalForNew(targetDateStr)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm transition"
+              >
+                + הוסף ביום זה
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+              {hours.map(hour => {
+                const hourEvs = dayEvs.filter(e => e.time && e.time.startsWith(hour.substring(0, 2)));
+                return (
+                  <div key={hour} className="flex border-b border-slate-100 py-2 min-h-[50px]">
+                    <div className="w-16 font-mono text-xs text-slate-400 font-bold">{hour}</div>
+                    <div className="flex-1 space-y-1">
+                      {hourEvs.map(ev => (
+                        <div key={ev.id} className="bg-indigo-50 border-r-4 border-indigo-500 p-2 rounded flex justify-between items-center text-sm">
+                          <div>
+                            <span className="font-bold text-slate-800">{ev.title}</span>
+                            <span className="mr-2 text-xs text-slate-500">({ev.owner})</span>
+                          </div>
+                          <div className="flex space-x-2 space-x-reverse text-slate-400">
+                            <button onClick={() => openModalForEdit(ev)} className="hover:text-indigo-600"><i className="fa-solid fa-pen"></i></button>
+                            <button onClick={() => handleDeleteEvent(ev.id)} className="hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      };
+
+      return (
+        <div className="max-w-4xl mx-auto p-4">
+          {/* Header */}
+          <header className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-4 flex flex-wrap justify-between items-center gap-4">
+            <div className="flex items-center space-x-3 space-x-reverse">
+              <h1 className="text-xl font-black text-indigo-900"><i className="fa-regular fa-calendar-days text-indigo-600 ml-2"></i>יומן ניהול לו"ז</h1>
+              <span className="text-sm font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{getFormattedMonth()}</span>
+            </div>
+
+            {/* View Mode Controls */}
+            <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+              <button 
+                onClick={() => setViewMode('month')} 
+                className={`px-3 py-1.5 rounded-lg transition ${viewMode === 'month' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+              >
+                חודשי
+              </button>
+              <button 
+                onClick={() => setViewMode('week')} 
+                className={`px-3 py-1.5 rounded-lg transition ${viewMode === 'week' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+              >
+                שבועי
+              </button>
+              <button 
+                onClick={() => setViewMode('day')} 
+                className={`px-3 py-1.5 rounded-lg transition ${viewMode === 'day' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+              >
+                יומי
+              </button>
+            </div>
+
+            {/* Navigation & Add */}
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-slate-100 rounded-lg"><i className="fa-solid fa-chevron-right"></i></button>
+              <button onClick={() => setCurrentDate(new Date())} className="text-xs font-bold text-slate-600 px-2 py-1 border border-slate-200 rounded-lg">היום</button>
+              <button onClick={() => navigateDate(1)} className="p-2 hover:bg-slate-100 rounded-lg"><i className="fa-solid fa-chevron-left"></i></button>
+              <button 
+                onClick={() => openModalForNew()}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-4 py-2 rounded-xl transition shadow-sm"
+              >
+                + חדש
+              </button>
+            </div>
+          </header>
+
+          {/* Body views */}
+          {viewMode === 'day' && renderDayTimeline(currentDate.toISOString().split('T')[0])}
+
+          {viewMode === 'month' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+              <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-400 mb-2">
+                <div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div>
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {/* Simplified Month Grid */}
+                {Array.from({ length: 35 }, (_, i) => {
+                  const dayNum = i + 1;
+                  const dateStr = `2026-08-${String(dayNum).padStart(2, '0')}`;
+                  const dayEvents = events.filter(e => e.date === dateStr);
+
+                  return (
+                    <div 
+                      key={i} 
+                      onClick={() => setSelectedDateEvents({ date: dateStr, events: dayEvents })}
+                      className="border border-slate-100 min-h-[80px] p-1.5 rounded-xl hover:border-indigo-300 cursor-pointer transition flex flex-col justify-between"
+                    >
+                      <span className="text-xs font-bold text-slate-500">{dayNum <= 31 ? dayNum : ''}</span>
+                      <div className="space-y-1">
+                        {dayEvents.slice(0, 2).map(ev => (
+                          <div key={ev.id} className="text-[10px] bg-indigo-50 text-indigo-700 p-1 rounded truncate">
+                            {ev.title}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Modal / Popup for Selected Date Events */}
+          {selectedDateEvents && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5">
+                <div className="flex justify-between items-center mb-4 border-b pb-2">
+                  <h3 className="font-bold text-lg text-slate-800">אירועים ל-{selectedDateEvents.date}</h3>
+                  <button onClick={() => setSelectedDateEvents(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                {renderDayTimeline(selectedDateEvents.date)}
+              </div>
+            </div>
+          )}
+
+          {/* Add / Edit Event Modal */}
+          {isModalOpen && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-lg text-slate-800">{editingEventId ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
+                  <button onClick={closeModal} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <form onSubmit={handleSaveEvent} className="space-y-4">
+                  <input 
+                    type="text" 
+                    placeholder="כותרת האירוע" 
+                    value={title} 
+                    onChange={e => setTitle(e.target.value)} 
+                    required 
+                    className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input 
+                      type="date" 
+                      value={dateStr} 
+                      onChange={e => setDateStr(e.target.value)} 
+                      required 
+                      className="border border-slate-200 rounded-xl p-2.5 text-sm outline-none"
+                    />
+                    {!isAllDay && (
+                      <input 
+                        type="time" 
+                        value={time} 
+                        onChange={e => setTime(e.target.value)} 
+                        className="border border-slate-200 rounded-xl p-2.5 text-sm outline-none"
+                      />
+                    )}
+                  </div>
+                  <label className="flex items-center space-x-2 space-x-reverse text-sm font-semibold text-slate-600">
+                    <input 
+                      type="checkbox" 
+                      checked={isAllDay} 
+                      onChange={e => setIsAllDay(e.target.checked)} 
+                      className="rounded text-indigo-600"
+                    />
+                    <span>כל היום</span>
+                  </label>
+                  <select 
+                    value={owner} 
+                    onChange={e => setOwner(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none"
+                  >
+                    <option value="דודי">דודי</option>
+                    <option value="שיינדי">שיינדי</option>
+                    <option value="כללי">משותף</option>
+                  </select>
+                  <button 
+                    type="submit" 
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition"
+                  >
+                    שמור
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<CalendarApp />);
+  </script>
 </body>
 </html>
