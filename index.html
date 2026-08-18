@@ -17,9 +17,13 @@
   <script type="text/babel">
     const SUPABASE_URL = 'https://thnfcunjgodtkuugbfg.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_FIo2bDyuizlE6cPf9HzMkw_r621ajwI';
-    const CITY_NAME = 'Ashdod';
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const HEBREW_MONTHS = [
+      'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+      'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+    ];
 
     function CalendarApp() {
       const [currentDate, setCurrentDate] = React.useState(new Date());
@@ -124,15 +128,17 @@
       // Helper dates
       const todayStr = new Date().toISOString().split('T')[0];
 
-      const getFormattedMonth = () => {
-        return currentDate.toLocaleString('he-IL', { month: 'long', year: 'numeric' });
+      const handleMonthChange = (e) => {
+        const newMonth = parseInt(e.target.value, 10);
+        const next = new Date(currentDate);
+        next.setMonth(newMonth);
+        setCurrentDate(next);
       };
 
-      const navigateDate = (amount) => {
+      const handleYearChange = (e) => {
+        const newYear = parseInt(e.target.value, 10);
         const next = new Date(currentDate);
-        if (viewMode === 'month') next.setMonth(next.getMonth() + amount);
-        if (viewMode === 'week') next.setDate(next.getDate() + (amount * 7));
-        if (viewMode === 'day') next.setDate(next.getDate() + amount);
+        next.setFullYear(newYear);
         setCurrentDate(next);
       };
 
@@ -147,6 +153,28 @@
           d.setDate(d.getDate() + i);
           return d;
         });
+      };
+
+      // Get days for month grid
+      const getDaysInMonthGrid = () => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const totalDays = new Date(year, month + 1, 0).getDate();
+
+        const grid = [];
+        // Empty cells before month starts
+        for (let i = 0; i < firstDay; i++) {
+          grid.push(null);
+        }
+        // Month days
+        for (let day = 1; day <= totalDays; day++) {
+          const formattedMonth = String(month + 1).padStart(2, '0');
+          const formattedDay = String(day).padStart(2, '0');
+          const dStr = `${year}-${formattedMonth}-${formattedDay}`;
+          grid.push({ day, dStr });
+        }
+        return grid;
       };
 
       // Render Day Timeline
@@ -194,6 +222,8 @@
         );
       };
 
+      const yearsList = Array.from({ length: 7 }, (_, i) => 2024 + i);
+
       return (
         <div className="max-w-5xl mx-auto p-4">
           {/* Header centered */}
@@ -202,7 +232,35 @@
               <h1 className="text-2xl font-black text-indigo-900"><i className="fa-regular fa-calendar-days text-indigo-600 ml-2"></i>יומן ניהול לו"ז משפחתי</h1>
             </div>
             
-            <span className="text-base font-bold text-slate-600 bg-indigo-50 border border-indigo-100 px-4 py-1.5 rounded-full">{getFormattedMonth()}</span>
+            {/* Month & Year Selectors */}
+            <div className="flex items-center gap-3 bg-indigo-50/70 border border-indigo-100 px-4 py-2 rounded-2xl">
+              <select 
+                value={currentDate.getMonth()} 
+                onChange={handleMonthChange}
+                className="bg-white text-indigo-900 font-bold text-sm px-3 py-1.5 rounded-xl border border-indigo-200 outline-none cursor-pointer"
+              >
+                {HEBREW_MONTHS.map((m, idx) => (
+                  <option key={idx} value={idx}>{m}</option>
+                ))}
+              </select>
+
+              <select 
+                value={currentDate.getFullYear()} 
+                onChange={handleYearChange}
+                className="bg-white text-indigo-900 font-bold text-sm px-3 py-1.5 rounded-xl border border-indigo-200 outline-none cursor-pointer"
+              >
+                {yearsList.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+
+              <button 
+                onClick={() => setCurrentDate(new Date())} 
+                className="text-xs font-bold text-indigo-600 px-3 py-1.5 bg-white border border-indigo-200 rounded-xl hover:bg-indigo-100 transition"
+              >
+                חזור להיום
+              </button>
+            </div>
 
             {/* View Mode Controls */}
             <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
@@ -226,14 +284,11 @@
               </button>
             </div>
 
-            {/* Navigation & Add */}
-            <div className="flex items-center space-x-3 space-x-reverse justify-center">
-              <button onClick={() => navigateDate(-1)} className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition"><i className="fa-solid fa-chevron-right"></i></button>
-              <button onClick={() => setCurrentDate(new Date())} className="text-xs font-bold text-indigo-600 px-3 py-2 border border-indigo-200 bg-indigo-50/50 rounded-xl hover:bg-indigo-100 transition">היום</button>
-              <button onClick={() => navigateDate(1)} className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition"><i className="fa-solid fa-chevron-left"></i></button>
+            {/* Add Event Button */}
+            <div>
               <button 
                 onClick={() => openModalForNew()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-5 py-2 rounded-xl transition shadow-sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition shadow-sm"
               >
                 + אירוע חדש
               </button>
@@ -291,18 +346,19 @@
                 <div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div>
               </div>
               <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: 31 }, (_, i) => {
-                  const dayNum = i + 1;
-                  const year = currentDate.getFullYear();
-                  const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-                  const dateStr = `${year}-${month}-${String(dayNum).padStart(2, '0')}`;
-                  const isToday = dateStr === todayStr;
-                  const dayEvents = events.filter(e => e.date === dateStr);
+                {getDaysInMonthGrid().map((cell, i) => {
+                  if (!cell) {
+                    return <div key={`empty-${i}`} className="min-h-[85px] bg-slate-50/50 rounded-xl border border-transparent"></div>;
+                  }
+
+                  const { day, dStr } = cell;
+                  const isToday = dStr === todayStr;
+                  const dayEvents = events.filter(e => e.date === dStr);
 
                   return (
                     <div 
-                      key={i} 
-                      onClick={() => setSelectedDateEvents({ date: dateStr, events: dayEvents })}
+                      key={dStr} 
+                      onClick={() => setSelectedDateEvents({ date: dStr, events: dayEvents })}
                       className={`border min-h-[85px] p-1.5 rounded-xl cursor-pointer transition flex flex-col justify-between ${
                         isToday 
                           ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-400' 
@@ -310,7 +366,7 @@
                       }`}
                     >
                       <span className={`text-xs font-bold ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full self-start' : 'text-slate-500'}`}>
-                        {dayNum}
+                        {day}
                       </span>
                       <div className="space-y-1">
                         {dayEvents.slice(0, 2).map(ev => (
