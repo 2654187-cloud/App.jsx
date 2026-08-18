@@ -15,7 +15,7 @@
     body { font-family: 'Assistant', sans-serif; }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb { background: #a7f3d0; border-radius: 999px; }
   </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -35,9 +35,10 @@
     const YEARS = Array.from({ length: 7 }, (_, i) => 2024 + i);
 
     const OWNER_COLORS = {
-      'דודי': { bg: 'bg-indigo-500', text: 'text-indigo-400', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+      'דודי': { bg: 'bg-emerald-500', text: 'text-emerald-400', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
       'שיינדי': { bg: 'bg-rose-500', text: 'text-rose-400', badge: 'bg-rose-50 text-rose-700 border-rose-200' },
-      'כללי': { bg: 'bg-amber-500', text: 'text-amber-400', badge: 'bg-amber-50 text-amber-700 border-amber-200' }
+      'משותף': { bg: 'bg-teal-500', text: 'text-teal-400', badge: 'bg-teal-50 text-teal-700 border-teal-200' },
+      'כללי': { bg: 'bg-teal-500', text: 'text-teal-400', badge: 'bg-teal-50 text-teal-700 border-teal-200' }
     };
 
     function CalendarApp() {
@@ -138,7 +139,7 @@
           setStartTime(ev.time || '10:00');
           setEndTime(ev.end_time || '11:00');
         }
-        setOwner(ev.owner || 'דודי');
+        setOwner(ev.owner === 'כללי' ? 'משותף' : (ev.owner || 'דודי'));
         setIsModalOpen(true);
       };
 
@@ -180,6 +181,7 @@
       // Filter events based on selected filter
       const filteredEvents = events.filter(e => {
         if (filterOwner === 'הכול') return true;
+        if (filterOwner === 'משותף') return e.owner === 'משותף' || e.owner === 'כללי';
         return e.owner === filterOwner;
       });
 
@@ -217,12 +219,12 @@
 
         if (dayEvs.length === 0) {
           return (
-            <div className={`text-center py-8 px-4 rounded-2xl border border-dashed ${isDarkMode ? 'bg-slate-800/40 border-slate-700/60' : 'bg-slate-50 border-slate-200'}`}>
-              <i className="fa-regular fa-calendar-check text-2xl text-slate-400 mb-2 block"></i>
+            <div className={`text-center py-8 px-4 rounded-2xl border border-dashed ${isDarkMode ? 'bg-slate-800/40 border-slate-700/60' : 'bg-emerald-50/40 border-emerald-200'}`}>
+              <i className="fa-regular fa-calendar-check text-2xl text-emerald-500 mb-2 block"></i>
               <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>אין אירועים מתוכננים</p>
               <button 
                 onClick={() => openModalForNew(targetDateStr)}
-                className="mt-2 text-xs font-bold text-indigo-500 hover:underline transition"
+                className="mt-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline transition"
               >
                 + הוסף אירוע
               </button>
@@ -233,7 +235,8 @@
         return (
           <div className="space-y-2.5">
             {dayEvs.map(ev => {
-              const ownerStyle = OWNER_COLORS[ev.owner] || OWNER_COLORS['דודי'];
+              const displayOwner = ev.owner === 'כללי' ? 'משותף' : ev.owner;
+              const ownerStyle = OWNER_COLORS[displayOwner] || OWNER_COLORS['דודי'];
               return (
                 <div 
                   key={ev.id} 
@@ -247,7 +250,7 @@
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${ownerStyle.badge}`}>
-                          {ev.owner}
+                          {displayOwner}
                         </span>
                         <span className={`text-xs font-semibold flex items-center gap-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                           <i className="fa-regular fa-clock text-[10px]"></i>
@@ -261,7 +264,7 @@
                     </div>
 
                     <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDarkMode ? 'bg-slate-700/50 border-slate-600/50 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                      <button onClick={() => openModalForEdit(ev)} className="w-7 h-7 flex items-center justify-center hover:text-indigo-500 rounded-lg transition">
+                      <button onClick={() => openModalForEdit(ev)} className="w-7 h-7 flex items-center justify-center hover:text-emerald-500 rounded-lg transition">
                         <i className="fa-solid fa-pen text-xs"></i>
                       </button>
                       <button onClick={() => handleDeleteEvent(ev.id)} className="w-7 h-7 flex items-center justify-center hover:text-rose-500 rounded-lg transition">
@@ -276,7 +279,7 @@
                       target="_blank" 
                       rel="noreferrer" 
                       className={`text-xs font-semibold px-2.5 py-1 rounded-xl inline-flex items-center gap-1.5 w-fit transition mr-2 ${
-                        isDarkMode ? 'bg-indigo-950/60 text-indigo-300 hover:bg-indigo-900/80' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                        isDarkMode ? 'bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/80' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                       }`}
                     >
                       <i className="fa-solid fa-location-dot"></i>
@@ -301,7 +304,7 @@
           }`}>
             <div className="max-w-md mx-auto flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
                   <i className="fa-regular fa-calendar-check text-lg"></i>
                 </div>
                 <div>
@@ -314,7 +317,7 @@
                 <button 
                   onClick={() => setIsDarkMode(!isDarkMode)} 
                   className={`w-9 h-9 rounded-xl flex items-center justify-center transition active:scale-90 border ${
-                    isDarkMode ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-slate-100 border-slate-200 text-indigo-600'
+                    isDarkMode ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-slate-100 border-slate-200 text-emerald-600'
                   }`}
                   title="החלף תצוגה"
                 >
@@ -323,7 +326,7 @@
 
                 <button 
                   onClick={() => openModalForNew()}
-                  className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-lg shadow-emerald-600/30 flex items-center gap-1.5"
                 >
                   <i className="fa-solid fa-plus text-xs"></i>
                   <span>אירוע</span>
@@ -339,13 +342,13 @@
             <div className={`p-1.5 rounded-2xl border shadow-sm flex items-center justify-between gap-1 text-xs font-bold ${
               isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200'
             }`}>
-              {['הכול', 'דודי', 'שיינדי', 'כללי'].map((name) => (
+              {['הכול', 'דודי', 'שיינדי', 'משותף'].map((name) => (
                 <button
                   key={name}
                   onClick={() => setFilterOwner(name)}
                   className={`flex-1 py-1.5 rounded-xl transition text-center ${
                     filterOwner === name
-                      ? 'bg-indigo-600 text-white shadow-md'
+                      ? 'bg-emerald-600 text-white shadow-md'
                       : isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -408,7 +411,7 @@
 
                 <button 
                   onClick={handleGoToToday} 
-                  className="text-xs font-black bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white px-3 py-1.5 rounded-xl border border-indigo-500/30 transition active:scale-95 mr-1"
+                  className="text-xs font-black bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-xl border border-emerald-500/30 transition active:scale-95 mr-1"
                 >
                   היום
                 </button>
@@ -420,19 +423,19 @@
               }`}>
                 <button 
                   onClick={() => setViewMode('month')} 
-                  className={`py-1.5 rounded-lg transition ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
+                  className={`py-1.5 rounded-lg transition ${viewMode === 'month' ? 'bg-emerald-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
                 >
                   חודש
                 </button>
                 <button 
                   onClick={() => setViewMode('week')} 
-                  className={`py-1.5 rounded-lg transition ${viewMode === 'week' ? 'bg-indigo-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
+                  className={`py-1.5 rounded-lg transition ${viewMode === 'week' ? 'bg-emerald-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
                 >
                   שבוע
                 </button>
                 <button 
                   onClick={() => setViewMode('day')} 
-                  className={`py-1.5 rounded-lg transition ${viewMode === 'day' ? 'bg-indigo-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
+                  className={`py-1.5 rounded-lg transition ${viewMode === 'day' ? 'bg-emerald-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
                 >
                   יום
                 </button>
@@ -465,9 +468,9 @@
                         onClick={() => setSelectedDateEvents({ date: dStr })}
                         className={`h-12 rounded-xl p-1 cursor-pointer transition flex flex-col justify-between items-center relative ${
                           isSelected
-                            ? 'bg-indigo-600/30 border-2 border-indigo-500 shadow-md'
+                            ? 'bg-emerald-600/30 border-2 border-emerald-500 shadow-md'
                             : isToday 
-                            ? 'bg-indigo-950/80 border border-indigo-500' 
+                            ? 'bg-emerald-950/80 border border-emerald-500' 
                             : isDarkMode 
                             ? 'bg-slate-900/60 hover:bg-slate-700/50 border border-slate-700/40' 
                             : 'bg-slate-50 hover:bg-slate-100 border border-slate-200'
@@ -475,15 +478,16 @@
                       >
                         <span className={`text-xs font-black ${
                           isToday 
-                            ? 'bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center' 
-                            : isSelected ? 'text-indigo-400' : isDarkMode ? 'text-slate-200' : 'text-slate-700'
+                            ? 'bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center' 
+                            : isSelected ? 'text-emerald-400' : isDarkMode ? 'text-slate-200' : 'text-slate-700'
                         }`}>
                           {day}
                         </span>
 
                         <div className="flex items-center justify-center gap-0.5 max-w-full overflow-hidden px-0.5 pb-0.5">
                           {dayEvents.slice(0, 3).map((ev, idx) => {
-                            const ownerStyle = OWNER_COLORS[ev.owner] || OWNER_COLORS['דודי'];
+                            const displayOwner = ev.owner === 'כללי' ? 'משותף' : ev.owner;
+                            const ownerStyle = OWNER_COLORS[displayOwner] || OWNER_COLORS['דודי'];
                             return (
                               <span key={idx} className={`w-1.5 h-1.5 rounded-full ${ownerStyle.bg}`}></span>
                             );
@@ -515,7 +519,7 @@
                   </div>
                   <button 
                     onClick={() => openModalForNew(selectedDate)}
-                    className="text-xs font-bold text-indigo-500 hover:underline transition"
+                    className="text-xs font-bold text-emerald-500 hover:underline transition"
                   >
                     + הוסף
                   </button>
@@ -564,10 +568,10 @@
                         isDarkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-200'
                       }`}>
                         <div className="flex items-center justify-between mb-2">
-                          <span className={`text-xs font-black px-2 py-0.5 rounded-md ${isToday ? 'bg-indigo-600 text-white' : isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
+                          <span className={`text-xs font-black px-2 py-0.5 rounded-md ${isToday ? 'bg-emerald-600 text-white' : isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
                             יום {['א\'','ב\'','ג\'','ד\'','ה\'','ו\'','ש\''][d.getDay()]} ({d.getDate()}/{d.getMonth() + 1})
                           </span>
-                          <button onClick={() => openModalForNew(dStr)} className="text-[11px] font-bold text-indigo-500">
+                          <button onClick={() => openModalForNew(dStr)} className="text-[11px] font-bold text-emerald-500">
                             + הוסף
                           </button>
                         </div>
@@ -588,7 +592,7 @@
                   <span className="text-sm font-black">
                     תצוגה יומית – {currentDate.toISOString().split('T')[0]}
                   </span>
-                  <button onClick={() => openModalForNew(currentDate.toISOString().split('T')[0])} className="text-xs font-bold text-indigo-500">
+                  <button onClick={() => openModalForNew(currentDate.toISOString().split('T')[0])} className="text-xs font-bold text-emerald-500">
                     + הוסף אירוע
                   </button>
                 </div>
@@ -606,7 +610,7 @@
               }`}>
                 <div className={`flex justify-between items-center mb-5 pb-3 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                       <i className="fa-solid fa-pen-to-square text-sm"></i>
                     </div>
                     <h3 className="font-extrabold text-lg">{editingEventId ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
@@ -627,7 +631,7 @@
                       value={title} 
                       onChange={e => setTitle(e.target.value)} 
                       required 
-                      className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-indigo-600 transition ${
+                      className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-emerald-500 transition ${
                         isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                       }`}
                     />
@@ -640,7 +644,7 @@
                       value={description} 
                       onChange={e => setDescription(e.target.value)} 
                       rows="2"
-                      className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-indigo-600 transition resize-none ${
+                      className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-emerald-500 transition resize-none ${
                         isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                       }`}
                     ></textarea>
@@ -655,7 +659,7 @@
                         placeholder="רחוב, עיר או שם מקום..." 
                         value={location} 
                         onChange={e => setLocation(e.target.value)} 
-                        className={`w-full border rounded-xl py-3 pr-8 pl-3 text-sm outline-none focus:border-indigo-600 transition ${
+                        className={`w-full border rounded-xl py-3 pr-8 pl-3 text-sm outline-none focus:border-emerald-500 transition ${
                           isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                         }`}
                       />
@@ -669,7 +673,7 @@
                       value={dateStr} 
                       onChange={e => setDateStr(e.target.value)} 
                       required 
-                      className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-indigo-600 transition ${
+                      className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-emerald-500 transition ${
                         isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                       }`}
                     />
@@ -681,7 +685,7 @@
                         type="checkbox" 
                         checked={isAllDay} 
                         onChange={e => setIsAllDay(e.target.checked)} 
-                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
                       />
                       <span>אירוע לכל היום</span>
                     </label>
@@ -694,7 +698,7 @@
                             type="time" 
                             value={startTime} 
                             onChange={e => setStartTime(e.target.value)} 
-                            className={`w-full border rounded-xl p-2 text-sm outline-none focus:border-indigo-600 ${
+                            className={`w-full border rounded-xl p-2 text-sm outline-none focus:border-emerald-500 ${
                               isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
                             }`}
                           />
@@ -705,7 +709,7 @@
                             type="time" 
                             value={endTime} 
                             onChange={e => setEndTime(e.target.value)} 
-                            className={`w-full border rounded-xl p-2 text-sm outline-none focus:border-indigo-600 ${
+                            className={`w-full border rounded-xl p-2 text-sm outline-none focus:border-emerald-500 ${
                               isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
                             }`}
                           />
@@ -717,14 +721,14 @@
                   <div>
                     <label className={`block text-xs font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>משויך ל:</label>
                     <div className="grid grid-cols-3 gap-2">
-                      {['דודי', 'שיינדי', 'כללי'].map((name) => (
+                      {['דודי', 'שיינדי', 'משותף'].map((name) => (
                         <button
                           key={name}
                           type="button"
                           onClick={() => setOwner(name)}
                           className={`py-2.5 rounded-xl text-xs font-bold border transition ${
                             owner === name 
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' 
                               : isDarkMode 
                               ? 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-700' 
                               : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -738,7 +742,7 @@
 
                   <button 
                     type="submit" 
-                    className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold py-3.5 rounded-2xl transition shadow-lg shadow-indigo-600/30 text-sm active:scale-[0.98] mt-2"
+                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-3.5 rounded-2xl transition shadow-lg shadow-emerald-600/30 text-sm active:scale-[0.98] mt-2"
                   >
                     שמור אירוע
                   </button>
