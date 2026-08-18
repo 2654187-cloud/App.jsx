@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="יומן משפחתי" />
 
-  <!-- Link & Social Sharing Preview (WhatsApp, etc.) -->
+  <!-- Link & Social Sharing Preview -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="יומן ניהול לו&quot;ז משפחתי" />
   <meta property="og:description" content="ניהול משימות ואירועים בזמן אמת" />
@@ -48,15 +48,49 @@
 
     const YEARS = Array.from({ length: 7 }, (_, i) => 2024 + i);
 
+    // הגדרת צבעים ייחודיים ומפורטים לכל משתמש
     const OWNER_COLORS = {
-      'דודי': { bg: 'bg-emerald-500', text: 'text-emerald-400', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-      'שיינדי': { bg: 'bg-rose-500', text: 'text-rose-400', badge: 'bg-rose-50 text-rose-700 border-rose-200' },
-      'משותף': { bg: 'bg-teal-500', text: 'text-teal-400', badge: 'bg-teal-50 text-teal-700 border-teal-200' },
-      'כללי': { bg: 'bg-teal-500', text: 'text-teal-400', badge: 'bg-teal-50 text-teal-700 border-teal-200' }
+      'דודי': { 
+        bg: 'bg-emerald-500', 
+        dot: 'bg-emerald-500',
+        cardLight: 'bg-emerald-50/80 border-emerald-200 text-emerald-950',
+        cardDark: 'bg-emerald-950/40 border-emerald-800/60 text-emerald-100',
+        badgeLight: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        badgeDark: 'bg-emerald-900/80 text-emerald-200 border-emerald-700'
+      },
+      'שיינדי': { 
+        bg: 'bg-rose-500', 
+        dot: 'bg-rose-500',
+        cardLight: 'bg-rose-50/80 border-rose-200 text-rose-950',
+        cardDark: 'bg-rose-950/40 border-rose-800/60 text-rose-100',
+        badgeLight: 'bg-rose-100 text-rose-800 border-rose-300',
+        badgeDark: 'bg-rose-900/80 text-rose-200 border-rose-700'
+      },
+      'משותף': { 
+        bg: 'bg-indigo-500', 
+        dot: 'bg-indigo-500',
+        cardLight: 'bg-indigo-50/80 border-indigo-200 text-indigo-950',
+        cardDark: 'bg-indigo-950/40 border-indigo-800/60 text-indigo-100',
+        badgeLight: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+        badgeDark: 'bg-indigo-900/80 text-indigo-200 border-indigo-700'
+      },
+      'כללי': { 
+        bg: 'bg-indigo-500', 
+        dot: 'bg-indigo-500',
+        cardLight: 'bg-indigo-50/80 border-indigo-200 text-indigo-950',
+        cardDark: 'bg-indigo-950/40 border-indigo-800/60 text-indigo-100',
+        badgeLight: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+        badgeDark: 'bg-indigo-900/80 text-indigo-200 border-indigo-700'
+      }
     };
 
     function CalendarApp() {
-      const [isDarkMode, setIsDarkMode] = React.useState(true);
+      // טעינת תצוגת הנושא שנשמרה בזיכרון המכשיר (ברירת מחדל: כהה)
+      const [isDarkMode, setIsDarkMode] = React.useState(() => {
+        const savedTheme = localStorage.getItem('app_theme');
+        return savedTheme ? savedTheme === 'dark' : true;
+      });
+
       const [currentDate, setCurrentDate] = React.useState(new Date());
       const [viewMode, setViewMode] = React.useState('month');
       const [filterOwner, setFilterOwner] = React.useState('הכול');
@@ -75,6 +109,15 @@
       const [owner, setOwner] = React.useState('דודי');
 
       const todayStr = new Date().toISOString().split('T')[0];
+
+      // שמירת הבחירה של התצוגה בזיכרון המכשיר בלחיצה
+      const toggleTheme = () => {
+        setIsDarkMode(prev => {
+          const next = !prev;
+          localStorage.setItem('app_theme', next ? 'dark' : 'light');
+          return next;
+        });
+      };
 
       React.useEffect(() => {
         fetchEvents();
@@ -248,34 +291,35 @@
           <div className="space-y-2.5">
             {dayEvs.map(ev => {
               const displayOwner = ev.owner === 'כללי' ? 'משותף' : ev.owner;
-              const ownerStyle = OWNER_COLORS[displayOwner] || OWNER_COLORS['דודי'];
+              const style = OWNER_COLORS[displayOwner] || OWNER_COLORS['דודי'];
+              const cardClass = isDarkMode ? style.cardDark : style.cardLight;
+              const badgeClass = isDarkMode ? style.badgeDark : style.badgeLight;
+
               return (
                 <div 
                   key={ev.id} 
-                  className={`rounded-2xl p-3.5 shadow-sm border transition flex flex-col justify-between gap-2.5 relative overflow-hidden ${
-                    isDarkMode ? 'bg-slate-800 border-slate-700/70 text-slate-100' : 'bg-white border-slate-100 text-slate-800'
-                  }`}
+                  className={`rounded-2xl p-3.5 shadow-sm border transition flex flex-col justify-between gap-2.5 relative overflow-hidden ${cardClass}`}
                 >
-                  <div className={`absolute top-0 right-0 bottom-0 w-1.5 ${ownerStyle.bg}`}></div>
+                  <div className={`absolute top-0 right-0 bottom-0 w-1.5 ${style.bg}`}></div>
                   
                   <div className="flex justify-between items-start pr-2">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${ownerStyle.badge}`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}`}>
                           {displayOwner}
                         </span>
-                        <span className={`text-xs font-semibold flex items-center gap-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <span className="text-xs font-semibold opacity-80 flex items-center gap-1">
                           <i className="fa-regular fa-clock text-[10px]"></i>
                           {ev.time} {ev.end_time ? `- ${ev.end_time}` : ''}
                         </span>
                       </div>
                       <h4 className="font-bold text-sm leading-snug">{ev.title}</h4>
                       {ev.description && (
-                        <p className={`text-xs mt-1 leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>{ev.description}</p>
+                        <p className="text-xs mt-1 leading-relaxed opacity-90">{ev.description}</p>
                       )}
                     </div>
 
-                    <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDarkMode ? 'bg-slate-700/50 border-slate-600/50 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                    <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDarkMode ? 'bg-slate-900/40 border-slate-700/50 text-slate-300' : 'bg-white/80 border-slate-200/80 text-slate-600'}`}>
                       <button onClick={() => openModalForEdit(ev)} className="w-7 h-7 flex items-center justify-center hover:text-emerald-500 rounded-lg transition">
                         <i className="fa-solid fa-pen text-xs"></i>
                       </button>
@@ -291,10 +335,10 @@
                       target="_blank" 
                       rel="noreferrer" 
                       className={`text-xs font-semibold px-2.5 py-1 rounded-xl inline-flex items-center gap-1.5 w-fit transition mr-2 ${
-                        isDarkMode ? 'bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/80' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                        isDarkMode ? 'bg-slate-900/60 hover:bg-slate-900/90' : 'bg-white/90 hover:bg-white'
                       }`}
                     >
-                      <i className="fa-solid fa-location-dot"></i>
+                      <i className="fa-solid fa-location-dot text-emerald-500"></i>
                       <span className="truncate max-w-[200px]">{ev.location}</span>
                     </a>
                   )}
@@ -326,7 +370,7 @@
 
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => setIsDarkMode(!isDarkMode)} 
+                  onClick={toggleTheme} 
                   className={`w-9 h-9 rounded-xl flex items-center justify-center transition active:scale-90 border ${
                     isDarkMode ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-slate-100 border-slate-200 text-emerald-600'
                   }`}
@@ -491,9 +535,9 @@
                         <div className="flex items-center justify-center gap-0.5 max-w-full overflow-hidden px-0.5 pb-0.5">
                           {dayEvents.slice(0, 3).map((ev, idx) => {
                             const displayOwner = ev.owner === 'כללי' ? 'משותף' : ev.owner;
-                            const ownerStyle = OWNER_COLORS[displayOwner] || OWNER_COLORS['דודי'];
+                            const style = OWNER_COLORS[displayOwner] || OWNER_COLORS['דודי'];
                             return (
-                              <span key={idx} className={`w-1.5 h-1.5 rounded-full ${ownerStyle.bg}`}></span>
+                              <span key={idx} className={`w-1.5 h-1.5 rounded-full ${style.dot}`}></span>
                             );
                           })}
                           {dayEvents.length > 3 && (
