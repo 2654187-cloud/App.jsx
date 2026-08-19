@@ -1,393 +1,464 @@
-'use client';
-import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+const { useState, useEffect } = React;
 
-// --- הגדרות חיבור ל-SUPABASE והגדרת עיר ---
-const SUPABASE_URL = 'https://thnfcunjgodtkcuugbfg.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_FIo2bDyuizlE6cPf9HzMkw_r621ajwI';
-const CITY_NAME = 'Ashdod'; 
+// הגדרת חיבור ל-Supabase
+const SUPABASE_URL = "https://cloud.supabase.co"; // יש לוודא שה-URL והמפתח של Supabase מעודכנים במידת הצורך
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY"; 
+const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ==========================================
+// פונקציות עזר לתאריכים עבריים (Hebcal CDN)
+// ==========================================
 
-export default function CalendarApp() {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDayData, setSelectedDayData] = useState(null);
-  const [dayTimes, setDayTimes] = useState({});
-  const [activeFilter, setActiveFilter] = useState('all'); 
-  const [events, setEvents] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+// קבלת פרטי תאריך עברי עבור תאריך לועזי
+function getHebrewInfo(dateObj) {
+  if (!window.hebcal) return { dayStr: '', monthName: '', yearStr: '', fullStr: '' };
+  const { HDate, gematriya } = window.hebcal;
+  const hdate = new HDate(dateObj);
+  const monthNum = hdate.getMonth();
+  const isLeap = hdate.isLeapYear();
 
-  // מצבי טופס הוספת אירוע
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newOwner, setNewOwner] = useState('dudi');
-  const [newCategory, setNewCategory] = useState('general_task');
-  const [newTime, setNewTime] = useState('');
-
-  // 1. טעינת אירועים מ-Supabase
-  const fetchEvents = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .order('time', { ascending: true });
-
-    if (error) console.error('שגיאה בטעינת אירועים:', error);
-    else setEvents(data || []);
-    setIsLoading(false);
+  const monthNames = {
+    1: 'ניסן', 2: 'אייר', 3: 'סיון', 4: 'תמוז', 5: 'אב', 6: 'אלול',
+    7: 'תשרי', 8: 'חשוון', 9: 'כסלו', 10: 'טבת', 11: 'שבט', 12: 'אדר',
+    13: 'אדר ב\'', 14: 'אדר א\''
   };
 
+  let monthName = monthNames[monthNum] || hdate.getMonthName();
+  if (isLeap && monthNum === 12) monthName = 'אדר א\'';
+  if (isLeap && monthNum === 13) monthName = 'אדר ב\'';
+
+  const dayStr = gematriya(hdate.getDate());
+  const yearStr = gematriya(hdate.getFullYear());
+
+  return {
+    hdateObj: hdate,
+    dayNum: hdate.getDate(),
+    dayStr,
+    monthNum,
+    monthName,
+    yearNum: hdate.getFullYear(),
+    yearStr,
+    isLeap,
+    fullStr: `${dayStr} ב${monthName} ${yearStr}`
+  };
+}
+
+// קבלת רשימת החודשים העבריים עבור שנה עברית מסוימת
+function getHebrewMonthsForYear(hYear) {
+  if (!window.hebcal) return [];
+  const { HDate } = window.hebcal;
+  const sample = new HDate(1, 1, hYear);
+  const isLeap = sample.isLeapYear();
+
+  if (isLeap) {
+    return [
+      { id: 7, name: 'תשרי' }, { id: 8, name: 'חשוון' }, { id: 9, name: 'כסלו' },
+      { id: 10, name: 'טבת' }, { id: 11, name: 'שבט' }, { id: 14, name: 'אדר א\'' },
+      { id: 13, name: 'אדר ב\'' }, { id: 1, name: 'ניסן' }, { id: 2, name: 'אייר' },
+      { id: 3, name: 'סיון' }, { id: 4, name: 'תמוז' }, { id: 5, name: 'אב' }, { id: 6, name: 'אלול' }
+    ];
+  }
+
+  return [
+    { id: 7, name: 'תשרי' }, { id: 8, name: 'חשוון' }, { id: 9, name: 'כסלו' },
+    { id: 10, name: 'טבת' }, { id: 11, name: 'שבט' }, { id: 12, name: 'אדר' },
+    { id: 1, name: 'ניסן' }, { id: 2, name: 'אייר' }, { id: 3, name: 'סיון' },
+    { id: 4, name: 'תמוז' }, { id: 5, name: 'אב' }, { id: 6, name: 'אלול' }
+  ];
+}
+
+// קבלת ימי חודש עברי
+function getHebrewMonthGrid(hYear, hMonth) {
+  if (!window.hebcal) return [];
+  const { HDate, gematriya } = window.hebcal;
+  const firstDay = new HDate(1, hMonth, hYear);
+  const totalDays = firstDay.daysInMonth();
+  const grid = [];
+
+  for (let d = 1; d <= totalDays; d++) {
+    const hd = new HDate(d, hMonth, hYear);
+    const greg = hd.greg();
+    const isoDate = greg.toISOString().split('T')[0];
+    grid.push({
+      hDayNum: d,
+      hDayStr: gematriya(d),
+      gregDate: greg,
+      isoDate,
+      dayOfWeek: greg.getDay() // 0 = ראשון
+    });
+  }
+  return grid;
+}
+
+// ==========================================
+// רכיב האפליקציה הראשי
+// ==========================================
+
+function CalendarApp() {
+  const [calendarMode, setCalendarMode] = useState('hebrew'); // 'hebrew' או 'gregorian'
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // תאריך לועזי נוכחי
+  const [currentGregDate, setCurrentGregDate] = useState(new Date());
+
+  // תאריך עברי נוכחי (לפי Hebcal)
+  const initHInfo = getHebrewInfo(new Date());
+  const [selectedHYear, setSelectedHYear] = useState(initHInfo.yearNum || 5786);
+  const [selectedHMonth, setSelectedHMonth] = useState(initHInfo.monthNum || 6);
+
+  // טופס אירוע חדש
+  const [showModal, setShowModal] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    title: '',
+    date: new Date().toISOString().split('T')[0],
+    owner: 'משותף',
+    time: '10:00'
+  });
+
+  // טעינת אירועים
   useEffect(() => {
     fetchEvents();
   }, []);
 
-  // 2. משיכת זמני שקיעה מ-Hebcal API לפי העיר
-  useEffect(() => {
-    const fetchHebcalData = async () => {
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth() + 1;
-      try {
-        const res = await fetch(
-          `https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=on&mod=on&nx=on&year=${year}&month=${month}&city=${CITY_NAME}&c=on`
-        );
-        const data = await res.json();
-        const timesByDate = {};
-        data.items?.forEach((item) => {
-          const itemDate = item.date.split('T')[0];
-          if (!timesByDate[itemDate]) timesByDate[itemDate] = {};
-          if (item.category === 'sunset') {
-            timesByDate[itemDate].sunset = item.title.replace('Sunset: ', '');
-          }
-        });
-        setDayTimes(timesByDate);
-      } catch (err) {
-        console.error('שגיאה בטעינת זמני היום:', err);
-      }
-    };
-
-    fetchHebcalData();
-  }, [currentDate]);
-
-  // 3. יצירת ימי החודש לגריד
-  const getDaysInMonth = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const totalDays = new Date(year, month + 1, 0).getDate();
-
-    const days = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let d = 1; d <= totalDays; d++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      days.push({ dayNumber: d, dateStr });
+  async function fetchEvents() {
+    if (!supabaseClient) return;
+    setLoading(true);
+    const { data, error } = await supabaseClient.from('events').select('*');
+    if (!error && data) {
+      setEvents(data);
     }
-    return days;
-  };
+    setLoading(false);
+  }
 
-  // 4. הוספת אירוע חדש ל-Supabase
-  const handleAddEvent = async (e) => {
+  // שמירת אירוע חדש
+  async function handleAddEvent(e) {
     e.preventDefault();
-    if (!newTitle.trim() || !selectedDayData) return;
+    if (!newEvent.title) return;
 
-    const newEvent = {
-      title: newTitle,
-      date: selectedDayData.dateStr,
-      time: newTime || null,
-      owner: newOwner,
-      category: newCategory,
-      is_completed: false,
-    };
+    if (supabaseClient) {
+      const { data, error } = await supabaseClient.from('events').insert([
+        {
+          title: newEvent.title,
+          date: newEvent.date,
+          owner: newEvent.owner,
+          time: newEvent.time
+        }
+      ]);
 
-    const { data, error } = await supabase.from('events').insert([newEvent]).select();
+      if (error) {
+        alert("שגיאה בשמירת האירוע: " + error.message);
+        return;
+      }
+    } else {
+      // תצוגה מקומית ללא Supabase
+      setEvents([...events, { ...newEvent, id: Date.now() }]);
+    }
 
-    if (error) {
-      alert('שגיאה בשמירת האירוע');
-      console.error(error);
-    } else if (data) {
-      const updatedList = [...events, data[0]];
-      setEvents(updatedList);
-      setSelectedDayData({
-        ...selectedDayData,
-        events: updatedList.filter((ev) => ev.date === selectedDayData.dateStr),
-      });
-      setNewTitle('');
-      setNewTime('');
-      setShowAddModal(false);
+    setShowModal(false);
+    setNewEvent({ title: '', date: new Date().toISOString().split('T')[0], owner: 'משותף', time: '10:00' });
+    fetchEvents();
+  }
+
+  // צבעים לפי בעל האירוע
+  const getOwnerBadge = (owner) => {
+    switch (owner) {
+      case 'דודי': return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+      case 'שיינדי': return 'bg-rose-100 text-rose-800 border-rose-300';
+      case 'כללי': return 'bg-purple-100 text-purple-800 border-purple-300';
+      default: return 'bg-indigo-100 text-indigo-800 border-indigo-300'; // משותף
     }
   };
 
-  // 5. מחיקת אירוע
-  const handleDeleteEvent = async (id) => {
-    const { error } = await supabase.from('events').delete().eq('id', id);
-    if (!error) {
-      const updatedList = events.filter((e) => e.id !== id);
-      setEvents(updatedList);
-      setSelectedDayData({
-        ...selectedDayData,
-        events: updatedList.filter((ev) => ev.date === selectedDayData.dateStr),
-      });
+  // ניווט חודשים עבריים
+  const hebrewMonths = getHebrewMonthsForYear(selectedHYear);
+  const hebrewGridDays = getHebrewMonthGrid(selectedHYear, selectedHMonth);
+
+  const prevHebrewMonth = () => {
+    const currentIndex = hebrewMonths.findIndex(m => m.id === selectedHMonth);
+    if (currentIndex > 0) {
+      setSelectedHMonth(hebrewMonths[currentIndex - 1].id);
+    } else {
+      setSelectedHYear(selectedHYear - 1);
+      const prevYearMonths = getHebrewMonthsForYear(selectedHYear - 1);
+      setSelectedHMonth(prevYearMonths[prevYearMonths.length - 1].id);
     }
   };
 
-  const filteredEvents = events.filter((ev) => {
-    if (activeFilter === 'all') return true;
-    return ev.owner === activeFilter;
-  });
+  const nextHebrewMonth = () => {
+    const currentIndex = hebrewMonths.findIndex(m => m.id === selectedHMonth);
+    if (currentIndex < hebrewMonths.length - 1) {
+      setSelectedHMonth(hebrewMonths[currentIndex + 1].id);
+    } else {
+      setSelectedHYear(selectedHYear + 1);
+      const nextYearMonths = getHebrewMonthsForYear(selectedHYear + 1);
+      setSelectedHMonth(nextYearMonths[0].id);
+    }
+  };
+
+  // ניווט חודשים לועזיים
+  const prevGregMonth = () => {
+    setCurrentGregDate(new Date(currentGregDate.getFullYear(), currentGregDate.getMonth() - 1, 1));
+  };
+  const nextGregMonth = () => {
+    setCurrentGregDate(new Date(currentGregDate.getFullYear(), currentGregDate.getMonth() + 1, 1));
+  };
+
+  // ימי השבוע
+  const daysOfWeek = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-slate-50 p-4 dir-rtl text-slate-800 font-sans pb-20">
-      {/* כותרת ודפדוף חודשים */}
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-bold text-slate-900">היומן המשותף</h1>
-        <div className="flex items-center gap-2">
+    <div className="min-h-screen bg-slate-900 text-slate-100 p-3 md:p-6 font-sans dir-rtl">
+      {/* סרגל עליון */}
+      <header className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 mb-6 bg-slate-800/80 p-4 rounded-2xl border border-slate-700 shadow-xl backdrop-blur-md">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-indigo-400">
+            יומן ניהול לו"ז משפחתי
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            {getHebrewInfo(new Date()).fullStr} | {new Date().toLocaleDateString('he-IL')}
+          </p>
+        </div>
+
+        {/* מתג החלפת תצוגה עברי / לועזי */}
+        <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-700">
           <button
-            onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
-            className="p-1 bg-white border rounded text-xs"
+            onClick={() => setCalendarMode('hebrew')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              calendarMode === 'hebrew'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg'
+                : 'text-slate-400 hover:text-white'
+            }`}
           >
-            ▶
+            📜 לוח עברי
           </button>
-          <span className="text-sm font-semibold text-indigo-600">
-            {currentDate.toLocaleString('he-IL', { month: 'long', year: 'numeric' })}
-          </span>
           <button
-            onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
-            className="p-1 bg-white border rounded text-xs"
+            onClick={() => setCalendarMode('gregorian')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              calendarMode === 'gregorian'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
+                : 'text-slate-400 hover:text-white'
+            }`}
           >
-            ◀
+            📅 לוח לועזי
           </button>
         </div>
-      </div>
 
-      {/* סרגל סינון יומנים */}
-      <div className="flex gap-2 mb-4 text-xs font-medium overflow-x-auto pb-1">
+        {/* כפתור הוספת אירוע */}
         <button
-          onClick={() => setActiveFilter('all')}
-          className={`px-3 py-1.5 rounded-full transition ${
-            activeFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-white border text-slate-600'
-          }`}
+          onClick={() => setShowModal(true)}
+          className="w-full md:w-auto px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
         >
-          הכל
+          <span>+</span>
+          <span>אירוע חדש</span>
         </button>
-        <button
-          onClick={() => setActiveFilter('dudi')}
-          className={`px-3 py-1.5 rounded-full transition ${
-            activeFilter === 'dudi' ? 'bg-blue-600 text-white' : 'bg-blue-50 border border-blue-200 text-blue-700'
-          }`}
-        >
-          דודי
-        </button>
-        <button
-          onClick={() => setActiveFilter('wife')}
-          className={`px-3 py-1.5 rounded-full transition ${
-            activeFilter === 'wife' ? 'bg-purple-600 text-white' : 'bg-purple-50 border border-purple-200 text-purple-700'
-          }`}
-        >
-          אשתי
-        </button>
-        <button
-          onClick={() => setActiveFilter('shared')}
-          className={`px-3 py-1.5 rounded-full transition ${
-            activeFilter === 'shared' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-          }`}
-        >
-          משותף
-        </button>
-      </div>
+      </header>
 
-      {/* ימי השבוע */}
-      <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-500 mb-2">
-        <div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div>
-      </div>
+      {/* אזור היומן הראשי */}
+      <main className="max-w-5xl mx-auto bg-slate-800/50 rounded-2xl border border-slate-700/80 p-4 shadow-2xl backdrop-blur-md">
+        
+        {/* כותרת ניווט חודשים */}
+        <div className="flex justify-between items-center mb-6 px-2">
+          <button
+            onClick={calendarMode === 'hebrew' ? prevHebrewMonth : prevGregMonth}
+            className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors text-lg"
+          >
+            ➔
+          </button>
 
-      {/* גריד חודשי */}
-      <div className="grid grid-cols-7 gap-1.5">
-        {getDaysInMonth().map((day, idx) => {
-          if (!day) return <div key={idx} className="h-20 bg-transparent" />;
+          {calendarMode === 'hebrew' ? (
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedHMonth}
+                onChange={(e) => setSelectedHMonth(Number(e.target.value))}
+                className="bg-slate-900 text-emerald-400 border border-slate-700 font-bold text-lg md:text-xl rounded-xl p-2 outline-none"
+              >
+                {hebrewMonths.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+              <span className="text-xl md:text-2xl font-black text-slate-200">
+                {window.hebcal ? window.hebcal.gematriya(selectedHYear) : selectedHYear}
+              </span>
+            </div>
+          ) : (
+            <h2 className="text-xl md:text-2xl font-black text-indigo-300">
+              {currentGregDate.toLocaleString('he-IL', { month: 'long', year: 'numeric' })}
+            </h2>
+          )}
 
-          const dayEvents = filteredEvents.filter((e) => e.date === day.dateStr);
-          const sunsetTime = dayTimes[day.dateStr]?.sunset;
+          <button
+            onClick={calendarMode === 'hebrew' ? nextHebrewMonth : nextGregMonth}
+            className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors text-lg"
+          >
+            ⬅
+          </button>
+        </div>
 
-          return (
-            <div
-              key={day.dateStr}
-              onClick={() => setSelectedDayData({ ...day, events: dayEvents, times: dayTimes[day.dateStr] })}
-              className="h-20 bg-white rounded-lg border border-slate-200 p-1 flex flex-col justify-between cursor-pointer hover:border-indigo-400 transition shadow-sm"
-            >
-              <div className="flex justify-between items-center text-[10px]">
-                <span className="font-bold text-slate-700 text-xs">{day.dayNumber}</span>
-                {sunsetTime && <span className="text-amber-600 font-mono">🌅{sunsetTime}</span>}
-              </div>
+        {/* ימי השבוע */}
+        <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2 text-center font-bold text-slate-400 text-xs md:text-sm">
+          {daysOfWeek.map((day, i) => (
+            <div key={i} className="py-2 bg-slate-800/80 rounded-lg">{day}</div>
+          ))}
+        </div>
 
-              <div className="flex flex-col gap-0.5 mt-1 overflow-hidden">
-                {dayEvents.slice(0, 2).map((ev) => (
+        {/* רשת הימים - לוח עברי */}
+        {calendarMode === 'hebrew' && (
+          <div className="grid grid-cols-7 gap-1 md:gap-2">
+            {/* ריווח תחילת שבוע */}
+            {Array.from({ length: hebrewGridDays[0]?.dayOfWeek || 0 }).map((_, idx) => (
+              <div key={`empty-${idx}`} className="h-24 md:h-32 bg-slate-900/30 rounded-xl border border-slate-800/50 opacity-30"></div>
+            ))}
+
+            {hebrewGridDays.map((day) => {
+              const dayEvents = events.filter(e => e.date === day.isoDate);
+              const isToday = day.isoDate === new Date().toISOString().split('T')[0];
+
+              return (
+                <div
+                  key={day.isoDate}
+                  className={`h-24 md:h-32 p-1.5 md:p-2 rounded-xl border transition-all flex flex-col justify-between ${
+                    isToday
+                      ? 'bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-950/50'
+                      : 'bg-slate-900/70 border-slate-700/60 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <span className="font-extrabold text-base md:text-lg text-emerald-400">{day.hDayStr}</span>
+                    <span className="text-[10px] md:text-xs text-slate-500">{day.gregDate.getDate()}/{day.gregDate.getMonth() + 1}</span>
+                  </div>
+
+                  {/* אירועים ביום */}
+                  <div className="flex-1 overflow-y-auto my-1 flex flex-col gap-1">
+                    {dayEvents.map((evt, idx) => (
+                      <div
+                        key={idx}
+                        className={`text-[10px] md:text-xs p-1 rounded-md border font-semibold truncate ${getOwnerBadge(evt.owner)}`}
+                        title={`${evt.title} (${evt.owner})`}
+                      >
+                        {evt.title}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* רשת הימים - לוח לועזי */}
+        {calendarMode === 'gregorian' && (
+          <div className="grid grid-cols-7 gap-1 md:gap-2">
+            {(() => {
+              const year = currentGregDate.getFullYear();
+              const month = currentGregDate.getMonth();
+              const firstDayIndex = new Date(year, month, 1).getDay();
+              const daysInMonth = new Date(year, month + 1, 0).getDate();
+              const grid = [];
+
+              // ריווח
+              for (let i = 0; i < firstDayIndex; i++) {
+                grid.push(<div key={`g-empty-${i}`} className="h-24 md:h-32 bg-slate-900/30 rounded-xl border border-slate-800/50 opacity-30"></div>);
+              }
+
+              // ימים
+              for (let d = 1; d <= daysInMonth; d++) {
+                const dateObj = new Date(year, month, d);
+                const isoDate = dateObj.toISOString().split('T')[0];
+                const hInfo = getHebrewInfo(dateObj);
+                const dayEvents = events.filter(e => e.date === isoDate);
+                const isToday = isoDate === new Date().toISOString().split('T')[0];
+
+                grid.push(
                   <div
-                    key={ev.id}
-                    className={`text-[9px] truncate px-1 rounded ${
-                      ev.owner === 'dudi'
-                        ? 'bg-blue-100 text-blue-800'
-                        : ev.owner === 'wife'
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-emerald-100 text-emerald-800'
+                    key={isoDate}
+                    className={`h-24 md:h-32 p-1.5 md:p-2 rounded-xl border transition-all flex flex-col justify-between ${
+                      isToday
+                        ? 'bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-950/50'
+                        : 'bg-slate-900/70 border-slate-700/60 hover:border-slate-500'
                     }`}
                   >
-                    {ev.title}
-                  </div>
-                ))}
-                {dayEvents.length > 2 && (
-                  <span className="text-[8px] text-slate-400 font-bold">+ עוד {dayEvents.length - 2}</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* חלונית תצוגה יומית */}
-      {selectedDayData && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-40">
-          <div className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 shadow-xl max-h-[85vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b pb-3 mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-800">
-                  תצוגה יומית – {selectedDayData.dateStr}
-                </h2>
-                {selectedDayData.times?.sunset && (
-                  <p className="text-xs text-amber-600 mt-0.5">
-                    שקיעה בעיר שלך: <strong>{selectedDayData.times.sunset}</strong>
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => setSelectedDayData(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-xl px-2"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-2 mb-6">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">לו"ז ומשימות</h3>
-              {selectedDayData.events.length === 0 ? (
-                <p className="text-sm text-slate-400 py-2">אין פגישות או משימות ליום זה.</p>
-              ) : (
-                selectedDayData.events.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="flex justify-between items-center p-3 rounded-xl border border-slate-100 bg-slate-50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          ev.owner === 'dudi'
-                            ? 'bg-blue-600'
-                            : ev.owner === 'wife'
-                            ? 'bg-purple-600'
-                            : 'bg-emerald-600'
-                        }`}
-                      />
-                      <div>
-                        <div className="text-sm font-semibold text-slate-800">{ev.title}</div>
-                        <div className="text-xs text-slate-400">{ev.time || 'ללא שעה'}</div>
-                      </div>
+                    <div className="flex justify-between items-start">
+                      <span className="font-extrabold text-base md:text-lg text-indigo-300">{d}</span>
+                      <span className="text-[10px] md:text-xs text-emerald-400 font-bold">{hInfo.dayStr} {hInfo.monthName}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-500">
-                        {ev.category === 'supplier'
-                          ? 'ספק'
-                          : ev.category === 'appointment'
-                          ? 'תור'
-                          : 'משימה'}
-                      </span>
-                      <button
-                        onClick={() => handleDeleteEvent(ev.id)}
-                        className="text-red-400 text-xs hover:text-red-600"
-                      >
-                        🗑️
-                      </button>
+
+                    <div className="flex-1 overflow-y-auto my-1 flex flex-col gap-1">
+                      {dayEvents.map((evt, idx) => (
+                        <div
+                          key={idx}
+                          className={`text-[10px] md:text-xs p-1 rounded-md border font-semibold truncate ${getOwnerBadge(evt.owner)}`}
+                        >
+                          {evt.title}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                );
+              }
 
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition shadow-md shadow-indigo-200"
-            >
-              + הוספת אירוע / משימה ליום זה
-            </button>
+              return grid;
+            })()}
           </div>
-        </div>
-      )}
+        )}
+      </main>
 
-      {/* טופס הוספת אירוע חדש */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-800 mb-4">אירוע חדש ל-{selectedDayData?.dateStr}</h3>
-            <form onSubmit={handleAddEvent} className="space-y-3">
+      {/* מודל הוספת אירוע */}
+      {showModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-xl font-bold text-emerald-400 mb-4">הוספת אירוע חדש</h3>
+            <form onSubmit={handleAddEvent} className="flex flex-col gap-4">
               <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">כותרת המשימה / פגישה</label>
+                <label className="text-xs text-slate-400 mb-1 block">שם האירוע</label>
                 <input
                   type="text"
                   required
-                  placeholder="למשל: תור לרופא שיניים"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl text-sm focus:outline-indigo-600"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-slate-100 outline-none focus:border-emerald-500"
+                  placeholder="לדוגמה: פגישה משפחתית"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">שיוך יומן</label>
+                <label className="text-xs text-slate-400 mb-1 block">תאריך</label>
+                <input
+                  type="date"
+                  required
+                  value={newEvent.date}
+                  onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-slate-100 outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">שיוך אירוע (בעלים)</label>
                 <select
-                  value={newOwner}
-                  onChange={(e) => setNewOwner(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl text-sm bg-white"
+                  value={newEvent.owner}
+                  onChange={(e) => setNewEvent({ ...newEvent, owner: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-slate-100 outline-none focus:border-emerald-500"
                 >
-                  <option value="dudi">דודי (אישי)</option>
-                  <option value="wife">אשתי (אישי)</option>
-                  <option value="shared">משותף לשנינו</option>
+                  <option value="משותף">משותף 🤝</option>
+                  <option value="דודי">דודי 👨</option>
+                  <option value="שיינדי">שיינדי 👩</option>
+                  <option value="כללי">כללי 📌</option>
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">קטגוריה</label>
-                  <select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl text-sm bg-white"
-                  >
-                    <option value="general_task">משימה</option>
-                    <option value="appointment">תור / פגישה</option>
-                    <option value="supplier">ספקים</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">שעה (אופציונלי)</label>
-                  <input
-                    type="time"
-                    value={newTime}
-                    onChange={(e) => setNewTime(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-sm"
-                >
-                  שמור
-                </button>
+              <div className="flex justify-end gap-3 mt-4">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2.5 border text-slate-600 rounded-xl text-sm"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-200 text-sm font-bold"
                 >
                   ביטול
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl text-sm font-bold"
+                >
+                  שמור אירוע
                 </button>
               </div>
             </form>
@@ -397,3 +468,6 @@ export default function CalendarApp() {
     </div>
   );
 }
+
+// רינדור האפליקציה לתוך ה-DOM
+ReactDOM.render(<CalendarApp />, document.getElementById('root'));
