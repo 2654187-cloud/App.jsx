@@ -1,15 +1,19 @@
 const { useState, useEffect } = React;
 
-// הגדרת חיבור ל-Supabase
-const SUPABASE_URL = "https://cloud.supabase.co"; // יש לוודא שה-URL והמפתח של Supabase מעודכנים במידת הצורך
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY"; 
-const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+// --- הגדרות חיבור ל-SUPABASE מתוך ההגדרות שלך ---
+const SUPABASE_URL = 'https://thnfcunjgodtkcuugbfg.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_FIo2bDyuizlE6cPf9HzMkw_r621ajwI';
+const CITY_NAME = 'Ashdod';
+
+// יצירת לקוח Supabase דרך הספרייה הנסמכת
+const supabase = (window.supabase && window.supabase.createClient) 
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+  : null;
 
 // ==========================================
 // פונקציות עזר לתאריכים עבריים (Hebcal CDN)
 // ==========================================
 
-// קבלת פרטי תאריך עברי עבור תאריך לועזי
 function getHebrewInfo(dateObj) {
   if (!window.hebcal) return { dayStr: '', monthName: '', yearStr: '', fullStr: '' };
   const { HDate, gematriya } = window.hebcal;
@@ -43,7 +47,6 @@ function getHebrewInfo(dateObj) {
   };
 }
 
-// קבלת רשימת החודשים העבריים עבור שנה עברית מסוימת
 function getHebrewMonthsForYear(hYear) {
   if (!window.hebcal) return [];
   const { HDate } = window.hebcal;
@@ -67,7 +70,6 @@ function getHebrewMonthsForYear(hYear) {
   ];
 }
 
-// קבלת ימי חודש עברי
 function getHebrewMonthGrid(hYear, hMonth) {
   if (!window.hebcal) return [];
   const { HDate, gematriya } = window.hebcal;
@@ -84,7 +86,7 @@ function getHebrewMonthGrid(hYear, hMonth) {
       hDayStr: gematriya(d),
       gregDate: greg,
       isoDate,
-      dayOfWeek: greg.getDay() // 0 = ראשון
+      dayOfWeek: greg.getDay()
     });
   }
   return grid;
@@ -99,15 +101,12 @@ function CalendarApp() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // תאריך לועזי נוכחי
   const [currentGregDate, setCurrentGregDate] = useState(new Date());
 
-  // תאריך עברי נוכחי (לפי Hebcal)
   const initHInfo = getHebrewInfo(new Date());
   const [selectedHYear, setSelectedHYear] = useState(initHInfo.yearNum || 5786);
   const [selectedHMonth, setSelectedHMonth] = useState(initHInfo.monthNum || 6);
 
-  // טופס אירוע חדש
   const [showModal, setShowModal] = useState(false);
   const [newEvent, setNewEvent] = useState({
     title: '',
@@ -116,28 +115,26 @@ function CalendarApp() {
     time: '10:00'
   });
 
-  // טעינת אירועים
   useEffect(() => {
     fetchEvents();
   }, []);
 
   async function fetchEvents() {
-    if (!supabaseClient) return;
+    if (!supabase) return;
     setLoading(true);
-    const { data, error } = await supabaseClient.from('events').select('*');
+    const { data, error } = await supabase.from('events').select('*');
     if (!error && data) {
       setEvents(data);
     }
     setLoading(false);
   }
 
-  // שמירת אירוע חדש
   async function handleAddEvent(e) {
     e.preventDefault();
     if (!newEvent.title) return;
 
-    if (supabaseClient) {
-      const { data, error } = await supabaseClient.from('events').insert([
+    if (supabase) {
+      const { data, error } = await supabase.from('events').insert([
         {
           title: newEvent.title,
           date: newEvent.date,
@@ -151,7 +148,6 @@ function CalendarApp() {
         return;
       }
     } else {
-      // תצוגה מקומית ללא Supabase
       setEvents([...events, { ...newEvent, id: Date.now() }]);
     }
 
@@ -160,17 +156,15 @@ function CalendarApp() {
     fetchEvents();
   }
 
-  // צבעים לפי בעל האירוע
   const getOwnerBadge = (owner) => {
     switch (owner) {
       case 'דודי': return 'bg-emerald-100 text-emerald-800 border-emerald-300';
       case 'שיינדי': return 'bg-rose-100 text-rose-800 border-rose-300';
       case 'כללי': return 'bg-purple-100 text-purple-800 border-purple-300';
-      default: return 'bg-indigo-100 text-indigo-800 border-indigo-300'; // משותף
+      default: return 'bg-indigo-100 text-indigo-800 border-indigo-300';
     }
   };
 
-  // ניווט חודשים עבריים
   const hebrewMonths = getHebrewMonthsForYear(selectedHYear);
   const hebrewGridDays = getHebrewMonthGrid(selectedHYear, selectedHMonth);
 
@@ -196,7 +190,6 @@ function CalendarApp() {
     }
   };
 
-  // ניווט חודשים לועזיים
   const prevGregMonth = () => {
     setCurrentGregDate(new Date(currentGregDate.getFullYear(), currentGregDate.getMonth() - 1, 1));
   };
@@ -204,12 +197,10 @@ function CalendarApp() {
     setCurrentGregDate(new Date(currentGregDate.getFullYear(), currentGregDate.getMonth() + 1, 1));
   };
 
-  // ימי השבוע
   const daysOfWeek = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 p-3 md:p-6 font-sans dir-rtl">
-      {/* סרגל עליון */}
       <header className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 mb-6 bg-slate-800/80 p-4 rounded-2xl border border-slate-700 shadow-xl backdrop-blur-md">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-indigo-400">
@@ -220,7 +211,6 @@ function CalendarApp() {
           </p>
         </div>
 
-        {/* מתג החלפת תצוגה עברי / לועזי */}
         <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-700">
           <button
             onClick={() => setCalendarMode('hebrew')}
@@ -244,7 +234,6 @@ function CalendarApp() {
           </button>
         </div>
 
-        {/* כפתור הוספת אירוע */}
         <button
           onClick={() => setShowModal(true)}
           className="w-full md:w-auto px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
@@ -254,10 +243,7 @@ function CalendarApp() {
         </button>
       </header>
 
-      {/* אזור היומן הראשי */}
       <main className="max-w-5xl mx-auto bg-slate-800/50 rounded-2xl border border-slate-700/80 p-4 shadow-2xl backdrop-blur-md">
-        
-        {/* כותרת ניווט חודשים */}
         <div className="flex justify-between items-center mb-6 px-2">
           <button
             onClick={calendarMode === 'hebrew' ? prevHebrewMonth : prevGregMonth}
@@ -295,17 +281,14 @@ function CalendarApp() {
           </button>
         </div>
 
-        {/* ימי השבוע */}
         <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2 text-center font-bold text-slate-400 text-xs md:text-sm">
           {daysOfWeek.map((day, i) => (
             <div key={i} className="py-2 bg-slate-800/80 rounded-lg">{day}</div>
           ))}
         </div>
 
-        {/* רשת הימים - לוח עברי */}
         {calendarMode === 'hebrew' && (
           <div className="grid grid-cols-7 gap-1 md:gap-2">
-            {/* ריווח תחילת שבוע */}
             {Array.from({ length: hebrewGridDays[0]?.dayOfWeek || 0 }).map((_, idx) => (
               <div key={`empty-${idx}`} className="h-24 md:h-32 bg-slate-900/30 rounded-xl border border-slate-800/50 opacity-30"></div>
             ))}
@@ -328,7 +311,6 @@ function CalendarApp() {
                     <span className="text-[10px] md:text-xs text-slate-500">{day.gregDate.getDate()}/{day.gregDate.getMonth() + 1}</span>
                   </div>
 
-                  {/* אירועים ביום */}
                   <div className="flex-1 overflow-y-auto my-1 flex flex-col gap-1">
                     {dayEvents.map((evt, idx) => (
                       <div
@@ -346,7 +328,6 @@ function CalendarApp() {
           </div>
         )}
 
-        {/* רשת הימים - לוח לועזי */}
         {calendarMode === 'gregorian' && (
           <div className="grid grid-cols-7 gap-1 md:gap-2">
             {(() => {
@@ -356,12 +337,10 @@ function CalendarApp() {
               const daysInMonth = new Date(year, month + 1, 0).getDate();
               const grid = [];
 
-              // ריווח
               for (let i = 0; i < firstDayIndex; i++) {
                 grid.push(<div key={`g-empty-${i}`} className="h-24 md:h-32 bg-slate-900/30 rounded-xl border border-slate-800/50 opacity-30"></div>);
               }
 
-              // ימים
               for (let d = 1; d <= daysInMonth; d++) {
                 const dateObj = new Date(year, month, d);
                 const isoDate = dateObj.toISOString().split('T')[0];
@@ -403,7 +382,6 @@ function CalendarApp() {
         )}
       </main>
 
-      {/* מודל הוספת אירוע */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
@@ -469,5 +447,4 @@ function CalendarApp() {
   );
 }
 
-// רינדור האפליקציה לתוך ה-DOM
 ReactDOM.render(<CalendarApp />, document.getElementById('root'));
