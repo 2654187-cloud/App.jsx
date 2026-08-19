@@ -2,426 +2,795 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>יומן ניהול לו"ז משפחתי</title>
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PWA & Mobile Display Configuration -->
+  <meta name="theme-color" content="#059669" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="יומן משפחתי" />
 
-  <!-- React & React-DOM -->
+  <!-- Link & Social Sharing Preview -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="יומן ניהול לו&quot;ז משפחתי" />
+  <meta property="og:description" content="ניהול משימות ואירועים בזמן אמת" />
+  <meta property="og:image" content="https://cdn-icons-png.flaticon.com/512/3652/3652191.png" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3652/3652191.png" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Hebcal (לוח עברי) -->
-  <script src="https://cdn.jsdelivr.net/npm/hebcal@2.3.2/client/hebcal.min.js"></script>
-
-  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@hebcal/core@5.8.0/dist/bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- Font Awesome (אייקונים של חיצים, מצב תאורה/כפתורים) -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-
-  <!-- גופן Assistant -->
-  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
-
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Assistant', sans-serif; transition: background-color 0.3s, color 0.3s; }
+    body { font-family: 'Assistant', sans-serif; }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb { background: #a7f3d0; border-radius: 999px; }
   </style>
 </head>
-<body class="antialiased min-h-screen bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
-
+<body class="antialiased min-h-screen">
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
-
-    // --- הגדרות חיבור ל-SUPABASE ---
     const SUPABASE_URL = 'https://thnfcunjgodtkcuugbfg.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_FIo2bDyuizlE6cPf9HzMkw_r621ajwI';
-    const CITY_NAME = 'Ashdod';
 
-    const supabase = (window.supabase && window.supabase.createClient) 
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
-      : null;
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // --- פונקציות עזר לתאריכים עבריים ---
-    function getHebrewInfo(dateObj) {
-      if (!window.hebcal) return { dayStr: '', monthName: '', yearStr: '', fullStr: '' };
-      try {
-        const { HDate, gematriya } = window.hebcal;
-        const hdate = new HDate(dateObj);
-        const monthNum = hdate.getMonth();
-        const isLeap = hdate.isLeapYear();
+    const HEBREW_MONTHS = [
+      'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+      'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+    ];
 
-        const monthNames = {
-          1: 'ניסן', 2: 'אייר', 3: 'סיון', 4: 'תמוז', 5: 'אב', 6: 'אלול',
-          7: 'תשרי', 8: 'חשוון', 9: 'כסלו', 10: 'טבת', 11: 'שבט', 12: 'אדר',
-          13: 'אדר ב\'', 14: 'אדר א\''
-        };
+    const YEARS = Array.from({ length: 7 }, (_, i) => 2024 + i);
 
-        let monthName = monthNames[monthNum] || hdate.getMonthName();
-        if (isLeap && monthNum === 12) monthName = 'אדר א\'';
-        if (isLeap && monthNum === 13) monthName = 'אדר ב\'';
-
-        const dayStr = gematriya(hdate.getDate());
-        const yearStr = gematriya(hdate.getFullYear());
-
-        return {
-          dayStr,
-          monthName,
-          yearStr,
-          fullStr: `${dayStr} ב${monthName} ${yearStr}`
-        };
-      } catch (e) {
-        return { dayStr: '', monthName: '', yearStr: '', fullStr: '' };
+    // הגדרת צבעים ייחודיים ומפורטים לכל משתמש
+    const OWNER_COLORS = {
+      'דודי': { 
+        bg: 'bg-emerald-500', 
+        dot: 'bg-emerald-500',
+        cardLight: 'bg-emerald-50/80 border-emerald-200 text-emerald-950',
+        cardDark: 'bg-emerald-950/40 border-emerald-800/60 text-emerald-100',
+        badgeLight: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        badgeDark: 'bg-emerald-900/80 text-emerald-200 border-emerald-700'
+      },
+      'שיינדי': { 
+        bg: 'bg-rose-500', 
+        dot: 'bg-rose-500',
+        cardLight: 'bg-rose-50/80 border-rose-200 text-rose-950',
+        cardDark: 'bg-rose-950/40 border-rose-800/60 text-rose-100',
+        badgeLight: 'bg-rose-100 text-rose-800 border-rose-300',
+        badgeDark: 'bg-rose-900/80 text-rose-200 border-rose-700'
+      },
+      'משותף': { 
+        bg: 'bg-indigo-500', 
+        dot: 'bg-indigo-500',
+        cardLight: 'bg-indigo-50/80 border-indigo-200 text-indigo-950',
+        cardDark: 'bg-indigo-950/40 border-indigo-800/60 text-indigo-100',
+        badgeLight: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+        badgeDark: 'bg-indigo-900/80 text-indigo-200 border-indigo-700'
+      },
+      'כללי': { 
+        bg: 'bg-indigo-500', 
+        dot: 'bg-indigo-500',
+        cardLight: 'bg-indigo-50/80 border-indigo-200 text-indigo-950',
+        cardDark: 'bg-indigo-950/40 border-indigo-800/60 text-indigo-100',
+        badgeLight: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+        badgeDark: 'bg-indigo-900/80 text-indigo-200 border-indigo-700'
       }
-    }
+    };
 
     function CalendarApp() {
-      const [currentDate, setCurrentDate] = useState(new Date());
-      const [viewMode, setViewMode] = useState('month'); // 'month', 'week', 'day'
-      const [calendarType, setCalendarType] = useState('gregorian'); // 'gregorian', 'hebrew'
-      const [filterOwner, setFilterOwner] = useState('הכול');
-      const [theme, setTheme] = useState('light');
-      const [events, setEvents] = useState([]);
-      const [showModal, setShowModal] = useState(false);
-      const [newEvent, setNewEvent] = useState({
-        title: '',
-        date: new Date().toISOString().split('T')[0],
-        owner: 'משותף',
-        time: '10:00'
+      // טעינת תצוגת הנושא שנשמרה בזיכרון המכשיר (ברירת מחדל: כהה)
+      const [isDarkMode, setIsDarkMode] = React.useState(() => {
+        const savedTheme = localStorage.getItem('app_theme');
+        return savedTheme ? savedTheme === 'dark' : true;
       });
 
-      // טעינת מצב תאורה
-      useEffect(() => {
-        if (theme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      }, [theme]);
+      const [currentDate, setCurrentDate] = React.useState(new Date());
+      const [viewMode, setViewMode] = React.useState('month');
+      const [filterOwner, setFilterOwner] = React.useState('הכול');
+      const [events, setEvents] = React.useState([]);
+      const [selectedDateEvents, setSelectedDateEvents] = React.useState(null);
+      const [isModalOpen, setIsModalOpen] = React.useState(false);
 
-      // טעינת אירועים מ-Supabase
-      useEffect(() => {
+      const [editingEventId, setEditingEventId] = React.useState(null);
+      const [title, setTitle] = React.useState('');
+      const [description, setDescription] = React.useState('');
+      const [location, setLocation] = React.useState('');
+      const [dateStr, setDateStr] = React.useState('');
+      const [startTime, setStartTime] = React.useState('10:00');
+      const [endTime, setEndTime] = React.useState('11:00');
+      const [isAllDay, setIsAllDay] = React.useState(false);
+      const [owner, setOwner] = React.useState('דודי');
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // שמירת הבחירה של התצוגה בזיכרון המכשיר בלחיצה
+      const toggleTheme = () => {
+        setIsDarkMode(prev => {
+          const next = !prev;
+          localStorage.setItem('app_theme', next ? 'dark' : 'light');
+          return next;
+        });
+      };
+
+      React.useEffect(() => {
         fetchEvents();
       }, []);
 
-      async function fetchEvents() {
-        if (!supabase) return;
-        const { data, error } = await supabase.from('events').select('*');
-        if (!error && data) {
-          setEvents(data);
+      const fetchEvents = async () => {
+        try {
+          const { data, error } = await supabase.from('events').select('*');
+          if (!error && data) {
+            setEvents(data);
+          }
+        } catch (err) {
+          console.error('Error fetching events:', err);
         }
-      }
+      };
 
-      async function handleAddEvent(e) {
+      const handleSaveEvent = async (e) => {
         e.preventDefault();
-        if (!newEvent.title) return;
+        const payload = {
+          title,
+          description,
+          location,
+          date: dateStr,
+          time: isAllDay ? 'כל היום' : startTime,
+          end_time: isAllDay ? null : endTime,
+          owner,
+          is_completed: false
+        };
 
-        if (supabase) {
-          const { error } = await supabase.from('events').insert([
-            {
-              title: newEvent.title,
-              date: newEvent.date,
-              owner: newEvent.owner,
-              time: newEvent.time
-            }
-          ]);
-          if (error) alert("שגיאה בשמירה: " + error.message);
+        if (editingEventId) {
+          const { error } = await supabase.from('events').update(payload).eq('id', editingEventId);
+          if (error) alert('שגיאה בעדכון: ' + error.message);
+          else { fetchEvents(); closeModal(); }
         } else {
-          setEvents([...events, { ...newEvent, id: Date.now() }]);
-        }
-
-        setShowModal(false);
-        setNewEvent({ title: '', date: new Date().toISOString().split('T')[0], owner: 'משותף', time: '10:00' });
-        fetchEvents();
-      }
-
-      // ניווט תאריכים
-      const handlePrev = () => {
-        const d = new Date(currentDate);
-        if (viewMode === 'month') d.setMonth(d.getMonth() - 1);
-        else if (viewMode === 'week') d.setDate(d.getDate() - 7);
-        else d.setDate(d.getDate() - 1);
-        setCurrentDate(d);
-      };
-
-      const handleNext = () => {
-        const d = new Date(currentDate);
-        if (viewMode === 'month') d.setMonth(d.getMonth() + 1);
-        else if (viewMode === 'week') d.setDate(d.getDate() + 7);
-        else d.setDate(d.getDate() + 1);
-        setCurrentDate(d);
-      };
-
-      const handleToday = () => setCurrentDate(new Date());
-
-      // סינון אירועים לפי בעלים
-      const filteredEvents = events.filter(e => filterOwner === 'הכול' || e.owner === filterOwner);
-
-      const getOwnerBadge = (owner) => {
-        switch (owner) {
-          case 'דודי': return 'bg-emerald-500 text-white';
-          case 'שיינדי': return 'bg-rose-500 text-white';
-          case 'כללי': return 'bg-purple-500 text-white';
-          default: return 'bg-teal-600 text-white';
+          const { error } = await supabase.from('events').insert([payload]);
+          if (error) alert('שגיאה בשמירה: ' + error.message);
+          else { fetchEvents(); closeModal(); }
         }
       };
 
-      const daysOfWeek = ['א\'', 'ב\'', 'ג\'', 'ד\'', 'ה\'', 'ו\'', 'ש\''];
+      const handleDeleteEvent = async (id) => {
+        if (confirm('האם למחוק אירוע זה?')) {
+          const { error } = await supabase.from('events').delete().eq('id', id);
+          if (!error) {
+            fetchEvents();
+          }
+        }
+      };
+
+      const openModalForNew = (defaultDate = '') => {
+        setEditingEventId(null);
+        setTitle('');
+        setDescription('');
+        setLocation('');
+        setDateStr(defaultDate || new Date().toISOString().split('T')[0]);
+        setStartTime('10:00');
+        setEndTime('11:00');
+        setIsAllDay(false);
+        setOwner('דודי');
+        setIsModalOpen(true);
+      };
+
+      const openModalForEdit = (ev) => {
+        setEditingEventId(ev.id);
+        setTitle(ev.title || '');
+        setDescription(ev.description || '');
+        setLocation(ev.location || '');
+        setDateStr(ev.date || '');
+        if (ev.time === 'כל היום') {
+          setIsAllDay(true);
+          setStartTime('10:00');
+          setEndTime('11:00');
+        } else {
+          setIsAllDay(false);
+          setStartTime(ev.time || '10:00');
+          setEndTime(ev.end_time || '11:00');
+        }
+        setOwner(ev.owner === 'כללי' ? 'משותף' : (ev.owner || 'דודי'));
+        setIsModalOpen(true);
+      };
+
+      const closeModal = () => {
+        setIsModalOpen(false);
+        setEditingEventId(null);
+      };
+
+      const handleGoToToday = () => {
+        const now = new Date();
+        setCurrentDate(now);
+        setSelectedDateEvents({ date: todayStr });
+      };
+
+      const handleNavigateTime = (direction) => {
+        const next = new Date(currentDate);
+        if (viewMode === 'month') {
+          next.setMonth(next.getMonth() + direction);
+        } else if (viewMode === 'week') {
+          next.setDate(next.getDate() + (direction * 7));
+        } else if (viewMode === 'day') {
+          next.setDate(next.getDate() + direction);
+        }
+        setCurrentDate(next);
+      };
+
+      const handleMonthSelect = (e) => {
+        const next = new Date(currentDate);
+        next.setMonth(parseInt(e.target.value, 10));
+        setCurrentDate(next);
+      };
+
+      const handleYearSelect = (e) => {
+        const next = new Date(currentDate);
+        next.setFullYear(parseInt(e.target.value, 10));
+        setCurrentDate(next);
+      };
+
+      const filteredEvents = events.filter(e => {
+        if (filterOwner === 'הכול') return true;
+        if (filterOwner === 'משותף') return e.owner === 'משותף' || e.owner === 'כללי';
+        return e.owner === filterOwner;
+      });
+
+      const getWeekDays = () => {
+        const start = new Date(currentDate);
+        const dayOfWeek = start.getDay();
+        start.setDate(start.getDate() - dayOfWeek);
+
+        return Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(start);
+          d.setDate(d.getDate() + i);
+          return d;
+        });
+      };
+
+      const getDaysInMonthGrid = () => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const totalDays = new Date(year, month + 1, 0).getDate();
+
+        const grid = [];
+        for (let i = 0; i < firstDay; i++) grid.push(null);
+        for (let day = 1; day <= totalDays; day++) {
+          const formattedMonth = String(month + 1).padStart(2, '0');
+          const formattedDay = String(day).padStart(2, '0');
+          const dStr = `${year}-${formattedMonth}-${formattedDay}`;
+          grid.push({ day, dStr });
+        }
+        return grid;
+      };
+
+      const renderDayTimeline = (targetDateStr) => {
+        const dayEvs = filteredEvents.filter(e => e.date === targetDateStr);
+
+        if (dayEvs.length === 0) {
+          return (
+            <div className={`text-center py-8 px-4 rounded-2xl border border-dashed ${isDarkMode ? 'bg-slate-800/40 border-slate-700/60' : 'bg-emerald-50/40 border-emerald-200'}`}>
+              <i className="fa-regular fa-calendar-check text-2xl text-emerald-500 mb-2 block"></i>
+              <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>אין אירועים מתוכננים</p>
+              <button 
+                onClick={() => openModalForNew(targetDateStr)}
+                className="mt-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline transition"
+              >
+                + הוסף אירוע
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <div className="space-y-2.5">
+            {dayEvs.map(ev => {
+              const displayOwner = ev.owner === 'כללי' ? 'משותף' : ev.owner;
+              const style = OWNER_COLORS[displayOwner] || OWNER_COLORS['דודי'];
+              const cardClass = isDarkMode ? style.cardDark : style.cardLight;
+              const badgeClass = isDarkMode ? style.badgeDark : style.badgeLight;
+
+              return (
+                <div 
+                  key={ev.id} 
+                  className={`rounded-2xl p-3.5 shadow-sm border transition flex flex-col justify-between gap-2.5 relative overflow-hidden ${cardClass}`}
+                >
+                  <div className={`absolute top-0 right-0 bottom-0 w-1.5 ${style.bg}`}></div>
+                  
+                  <div className="flex justify-between items-start pr-2">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                          {displayOwner}
+                        </span>
+                        <span className="text-xs font-semibold opacity-80 flex items-center gap-1">
+                          <i className="fa-regular fa-clock text-[10px]"></i>
+                          {ev.time} {ev.end_time ? `- ${ev.end_time}` : ''}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-sm leading-snug">{ev.title}</h4>
+                      {ev.description && (
+                        <p className="text-xs mt-1 leading-relaxed opacity-90">{ev.description}</p>
+                      )}
+                    </div>
+
+                    <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDarkMode ? 'bg-slate-900/40 border-slate-700/50 text-slate-300' : 'bg-white/80 border-slate-200/80 text-slate-600'}`}>
+                      <button onClick={() => openModalForEdit(ev)} className="w-7 h-7 flex items-center justify-center hover:text-emerald-500 rounded-lg transition">
+                        <i className="fa-solid fa-pen text-xs"></i>
+                      </button>
+                      <button onClick={() => handleDeleteEvent(ev.id)} className="w-7 h-7 flex items-center justify-center hover:text-rose-500 rounded-lg transition">
+                        <i className="fa-solid fa-trash text-xs"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  {ev.location && (
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-xl inline-flex items-center gap-1.5 w-fit transition mr-2 ${
+                        isDarkMode ? 'bg-slate-900/60 hover:bg-slate-900/90' : 'bg-white/90 hover:bg-white'
+                      }`}
+                    >
+                      <i className="fa-solid fa-location-dot text-emerald-500"></i>
+                      <span className="truncate max-w-[200px]">{ev.location}</span>
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      };
+
+      const selectedDate = selectedDateEvents ? selectedDateEvents.date : todayStr;
+      const weekDays = getWeekDays();
 
       return (
-        <div className="max-w-5xl mx-auto p-4 md:p-6">
-          {/* סרגל עליון */}
-          <header className="flex flex-wrap justify-between items-center gap-4 mb-6 bg-white dark:bg-slate-800 p-4 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center text-white font-black text-xl shadow-md">
-                📅
+        <div className={`min-h-screen pb-12 transition-colors duration-200 ${isDarkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-100 text-slate-800'}`}>
+          <header className={`sticky top-0 z-40 backdrop-blur-md border-b px-4 py-3 transition-colors ${
+            isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200 shadow-sm'
+          }`}>
+            <div className="max-w-md mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                  <i className="fa-regular fa-calendar-check text-lg"></i>
+                </div>
+                <div>
+                  <h1 className="text-base font-extrabold tracking-wide leading-none">יומן משפחתי</h1>
+                  <span className={`text-[10px] font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>ניהול לו"ז בזמן אמת</span>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl md:text-2xl font-bold">יומן משפחתי</h1>
-                <p className="text-xs text-slate-400">ניהול לו"ז בזמן אמת | {getHebrewInfo(new Date()).fullStr}</p>
+
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={toggleTheme} 
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition active:scale-90 border ${
+                    isDarkMode ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-slate-100 border-slate-200 text-emerald-600'
+                  }`}
+                  title="החלף תצוגה"
+                >
+                  <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'} text-sm`}></i>
+                </button>
+
+                <button 
+                  onClick={() => openModalForNew()}
+                  className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-lg shadow-emerald-600/30 flex items-center gap-1.5"
+                >
+                  <i className="fa-solid fa-plus text-xs"></i>
+                  <span>אירוע</span>
+                </button>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* כפתור מצב בהיר/כהה */}
-              <button
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                className="w-10 h-10 rounded-2xl border border-slate-300 dark:border-slate-600 flex items-center justify-center text-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                title="החלף מצב תאורה"
-              >
-                <i className={theme === 'light' ? 'fa-solid fa-moon' : 'fa-solid fa-sun text-amber-400'}></i>
-              </button>
-
-              {/* כפתור אירוע חדש */}
-              <button
-                onClick={() => setShowModal(true)}
-                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl shadow-md shadow-emerald-500/20 transition-all flex items-center gap-2"
-              >
-                <i className="fa-solid fa-plus"></i>
-                <span>אירוע</span>
-              </button>
             </div>
           </header>
 
-          {/* סרגל סינון בעלי אירוע */}
-          <div className="bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 mb-4 flex justify-between gap-1">
-            {['הכול', 'דודי', 'שיינדי', 'משותף'].map((owner) => (
-              <button
-                key={owner}
-                onClick={() => setFilterOwner(owner)}
-                className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${
-                  filterOwner === owner
-                    ? 'bg-emerald-500 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {owner}
-              </button>
-            ))}
-          </div>
-
-          {/* סרגל ניווט תאריכים ותצוגה */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleToday}
-                className="px-4 py-2 bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 rounded-xl font-bold text-sm"
-              >
-                היום
-              </button>
-
-              <button
-                onClick={handlePrev}
-                className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-              >
-                <i className="fa-solid fa-chevron-right"></i>
-              </button>
-
-              <div className="flex items-center gap-2 px-2">
-                <span className="text-lg md:text-xl font-black">
-                  {currentDate.toLocaleString('he-IL', { month: 'long' })} {currentDate.getFullYear()}
-                </span>
-              </div>
-
-              <button
-                onClick={handleNext}
-                className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-              >
-                <i className="fa-solid fa-chevron-left"></i>
-              </button>
-            </div>
-
-            {/* מתג לוח עברי / לועזי */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
-              <button
-                onClick={() => setCalendarType('gregorian')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  calendarType === 'gregorian' ? 'bg-white dark:bg-slate-800 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
-                }`}
-              >
-                לועזי
-              </button>
-              <button
-                onClick={() => setCalendarType('hebrew')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  calendarType === 'hebrew' ? 'bg-white dark:bg-slate-800 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
-                }`}
-              >
-                עברי
-              </button>
-            </div>
-
-            {/* מצב תצוגה */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
-              {['חודש', 'שבוע', 'יום'].map((mode, idx) => {
-                const keys = ['month', 'week', 'day'];
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => setViewMode(keys[idx])}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      viewMode === keys[idx]
-                        ? 'bg-emerald-500 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    {mode}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* לוח שנה - תצוגת חודש */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700">
-            {/* ימי השבוע */}
-            <div className="grid grid-cols-7 gap-2 mb-3 text-center font-bold text-slate-400 text-sm">
-              {daysOfWeek.map((day) => (
-                <div key={day} className="py-2">{day}</div>
+          <main className="max-w-md mx-auto px-3 pt-3 space-y-3">
+            <div className={`p-1.5 rounded-2xl border shadow-sm flex items-center justify-between gap-1 text-xs font-bold ${
+              isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200'
+            }`}>
+              {['הכול', 'דודי', 'שיינדי', 'משותף'].map((name) => (
+                <button
+                  key={name}
+                  onClick={() => setFilterOwner(name)}
+                  className={`flex-1 py-1.5 rounded-xl transition text-center ${
+                    filterOwner === name
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {name}
+                </button>
               ))}
             </div>
 
-            {/* רשת הימים */}
-            <div className="grid grid-cols-7 gap-2">
-              {(() => {
-                const year = currentDate.getFullYear();
-                const month = currentDate.getMonth();
-                const firstDayIndex = new Date(year, month, 1).getDay();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                const grid = [];
+            <div className={`rounded-2xl p-3.5 border shadow-xl space-y-3 ${
+              isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200'
+            }`}>
+              <div className="flex items-center justify-between gap-2">
+                <button 
+                  onClick={() => handleNavigateTime(1)} 
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center border transition ${
+                    isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="הבא"
+                >
+                  <i className="fa-solid fa-chevron-right text-xs"></i>
+                </button>
 
-                for (let i = 0; i < firstDayIndex; i++) {
-                  grid.push(<div key={`empty-${i}`} className="h-24 md:h-28 bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border border-slate-100 dark:border-slate-800 opacity-40"></div>);
-                }
+                <div className="flex items-center gap-2 flex-1 justify-center">
+                  <select 
+                    value={currentDate.getMonth()} 
+                    onChange={handleMonthSelect}
+                    className={`font-bold text-sm px-3 py-1.5 rounded-xl border outline-none cursor-pointer transition ${
+                      isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    {HEBREW_MONTHS.map((m, idx) => (
+                      <option key={idx} value={idx}>{m}</option>
+                    ))}
+                  </select>
 
-                for (let d = 1; d <= daysInMonth; d++) {
-                  const dateObj = new Date(year, month, d);
-                  const isoDate = dateObj.toISOString().split('T')[0];
-                  const hInfo = getHebrewInfo(dateObj);
-                  const dayEvents = filteredEvents.filter(e => e.date === isoDate);
-                  const isToday = isoDate === new Date().toISOString().split('T')[0];
+                  <select 
+                    value={currentDate.getFullYear()} 
+                    onChange={handleYearSelect}
+                    className={`font-bold text-sm px-3 py-1.5 rounded-xl border outline-none cursor-pointer transition ${
+                      isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    {YEARS.map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
 
-                  grid.push(
-                    <div
-                      key={isoDate}
-                      className={`h-24 md:h-28 p-2 rounded-2xl border transition-all flex flex-col justify-between ${
-                        isToday
-                          ? 'border-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-sm'
-                          : 'border-slate-100 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/50 hover:border-slate-300'
+                <button 
+                  onClick={() => handleNavigateTime(-1)} 
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center border transition ${
+                    isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="הקודם"
+                >
+                  <i className="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+
+                <button 
+                  onClick={handleGoToToday} 
+                  className="text-xs font-black bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-xl border border-emerald-500/30 transition active:scale-95 mr-1"
+                >
+                  היום
+                </button>
+              </div>
+
+              <div className={`grid grid-cols-3 gap-1 p-1 rounded-xl border text-xs font-bold ${
+                isDarkMode ? 'bg-slate-900/80 border-slate-700/50' : 'bg-slate-100 border-slate-200'
+              }`}>
+                <button 
+                  onClick={() => setViewMode('month')} 
+                  className={`py-1.5 rounded-lg transition ${viewMode === 'month' ? 'bg-emerald-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
+                >
+                  חודש
+                </button>
+                <button 
+                  onClick={() => setViewMode('week')} 
+                  className={`py-1.5 rounded-lg transition ${viewMode === 'week' ? 'bg-emerald-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
+                >
+                  שבוע
+                </button>
+                <button 
+                  onClick={() => setViewMode('day')} 
+                  className={`py-1.5 rounded-lg transition ${viewMode === 'day' ? 'bg-emerald-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
+                >
+                  יום
+                </button>
+              </div>
+            </div>
+
+            {viewMode === 'month' && (
+              <div className={`rounded-2xl p-3 border shadow-xl space-y-2 ${
+                isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200'
+              }`}>
+                <div className={`grid grid-cols-7 text-center font-extrabold text-[11px] pb-1 border-b ${
+                  isDarkMode ? 'text-slate-400 border-slate-700/50' : 'text-slate-500 border-slate-200'
+                }`}>
+                  <div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div>
+                </div>
+
+                <div className="grid grid-cols-7 gap-1">
+                  {getDaysInMonthGrid().map((cell, i) => {
+                    if (!cell) return <div key={`empty-${i}`} className={`h-12 rounded-xl ${isDarkMode ? 'bg-slate-900/20' : 'bg-slate-100/40'}`}></div>;
+
+                    const { day, dStr } = cell;
+                    const isToday = dStr === todayStr;
+                    const isSelected = selectedDate === dStr;
+                    const dayEvents = filteredEvents.filter(e => e.date === dStr);
+
+                    return (
+                      <div 
+                        key={dStr} 
+                        onClick={() => setSelectedDateEvents({ date: dStr })}
+                        className={`h-12 rounded-xl p-1 cursor-pointer transition flex flex-col justify-between items-center relative ${
+                          isSelected
+                            ? 'bg-emerald-600/30 border-2 border-emerald-500 shadow-md'
+                            : isToday 
+                            ? 'bg-emerald-950/80 border border-emerald-500' 
+                            : isDarkMode 
+                            ? 'bg-slate-900/60 hover:bg-slate-700/50 border border-slate-700/40' 
+                            : 'bg-slate-50 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        <span className={`text-xs font-black ${
+                          isToday 
+                            ? 'bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center' 
+                            : isSelected ? 'text-emerald-400' : isDarkMode ? 'text-slate-200' : 'text-slate-700'
+                        }`}>
+                          {day}
+                        </span>
+
+                        <div className="flex items-center justify-center gap-0.5 max-w-full overflow-hidden px-0.5 pb-0.5">
+                          {dayEvents.slice(0, 3).map((ev, idx) => {
+                            const displayOwner = ev.owner === 'כללי' ? 'משותף' : ev.owner;
+                            const style = OWNER_COLORS[displayOwner] || OWNER_COLORS['דודי'];
+                            return (
+                              <span key={idx} className={`w-1.5 h-1.5 rounded-full ${style.dot}`}></span>
+                            );
+                          })}
+                          {dayEvents.length > 3 && (
+                            <span className="w-1 h-1 rounded-full bg-slate-400"></span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {viewMode === 'month' && (
+              <div className={`rounded-3xl p-4 shadow-xl space-y-3 ${
+                isDarkMode ? 'bg-slate-800/90 border border-slate-700' : 'bg-white border border-slate-200'
+              }`}>
+                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">לו"ז ליום</span>
+                    <span className={`text-sm font-black px-2.5 py-0.5 rounded-lg border shadow-sm ${
+                      isDarkMode ? 'bg-slate-900 text-white border-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200'
+                    }`}>
+                      {selectedDate}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => openModalForNew(selectedDate)}
+                    className="text-xs font-bold text-emerald-500 hover:underline transition"
+                  >
+                    + הוסף
+                  </button>
+                </div>
+
+                {renderDayTimeline(selectedDate)}
+              </div>
+            )}
+
+            {viewMode === 'week' && (
+              <div className={`rounded-3xl p-4 shadow-xl space-y-4 ${
+                isDarkMode ? 'bg-slate-800/90 border border-slate-700' : 'bg-white border border-slate-200'
+              }`}>
+                <div className={`flex items-center justify-between font-extrabold text-sm border-b pb-2 ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <span>
+                    שבוע: {weekDays[0].toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })} - {weekDays[6].toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => handleNavigateTime(-1)}
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center border transition ${
+                        isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
                       }`}
                     >
-                      <div className="flex justify-between items-center">
-                        <span className={`font-bold text-sm md:text-base ${isToday ? 'text-emerald-600 dark:text-emerald-400 font-extrabold' : ''}`}>
-                          {calendarType === 'hebrew' ? hInfo.dayStr || d : d}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          {calendarType === 'hebrew' ? `${d}/${month + 1}` : hInfo.dayStr}
-                        </span>
-                      </div>
+                      <i className="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+                    <button 
+                      onClick={() => handleNavigateTime(1)}
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center border transition ${
+                        isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      <i className="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {weekDays.map((d, idx) => {
+                    const dStr = d.toISOString().split('T')[0];
+                    const isToday = dStr === todayStr;
 
-                      <div className="flex-1 overflow-y-auto my-1 flex flex-col gap-1">
-                        {dayEvents.map((evt, idx) => (
-                          <div
-                            key={idx}
-                            className={`text-[10px] p-1 rounded-lg font-bold truncate ${getOwnerBadge(evt.owner)}`}
-                          >
-                            {evt.title}
-                          </div>
-                        ))}
+                    return (
+                      <div key={idx} className={`rounded-2xl p-3 border shadow-sm ${
+                        isDarkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-200'
+                      }`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-xs font-black px-2 py-0.5 rounded-md ${isToday ? 'bg-emerald-600 text-white' : isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
+                            יום {['א\'','ב\'','ג\'','ד\'','ה\'','ו\'','ש\''][d.getDay()]} ({d.getDate()}/{d.getMonth() + 1})
+                          </span>
+                          <button onClick={() => openModalForNew(dStr)} className="text-[11px] font-bold text-emerald-500">
+                            + הוסף
+                          </button>
+                        </div>
+                        {renderDayTimeline(dStr)}
                       </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {viewMode === 'day' && (
+              <div className={`rounded-3xl p-4 shadow-xl space-y-3 ${
+                isDarkMode ? 'bg-slate-800/90 border border-slate-700' : 'bg-white border border-slate-200'
+              }`}>
+                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <span className="text-sm font-black">
+                    תצוגה יומית – {currentDate.toISOString().split('T')[0]}
+                  </span>
+                  <button onClick={() => openModalForNew(currentDate.toISOString().split('T')[0])} className="text-xs font-bold text-emerald-500">
+                    + הוסף אירוע
+                  </button>
+                </div>
+                {renderDayTimeline(currentDate.toISOString().split('T')[0])}
+              </div>
+            )}
+
+          </main>
+
+          {isModalOpen && (
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+              <div className={`rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto ${
+                isDarkMode ? 'bg-slate-800 text-slate-100 border border-slate-700' : 'bg-white text-slate-800'
+              }`}>
+                <div className={`flex justify-between items-center mb-5 pb-3 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <i className="fa-solid fa-pen-to-square text-sm"></i>
                     </div>
-                  );
-                }
+                    <h3 className="font-extrabold text-lg">{editingEventId ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
+                  </div>
+                  <button onClick={closeModal} className={`w-8 h-8 flex items-center justify-center rounded-full ${
+                    isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    <i className="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
 
-                return grid;
-              })()}
-            </div>
-          </div>
-
-          {/* מודל הוספת אירוע */}
-          {showModal && (
-            <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 w-full max-w-md shadow-2xl">
-                <h3 className="text-xl font-bold mb-4">אירוע חדש</h3>
-                <form onSubmit={handleAddEvent} className="flex flex-col gap-4">
+                <form onSubmit={handleSaveEvent} className="space-y-4">
                   <div>
-                    <label className="text-xs text-slate-400 mb-1 block font-bold">שם האירוע</label>
-                    <input
-                      type="text"
-                      required
-                      value={newEvent.title}
-                      onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                      className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none focus:border-emerald-500"
-                      placeholder="הכנס שם אירוע..."
+                    <label className={`block text-xs font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>כותרת האירוע *</label>
+                    <input 
+                      type="text" 
+                      placeholder="מה מתכננים?" 
+                      value={title} 
+                      onChange={e => setTitle(e.target.value)} 
+                      required 
+                      className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-emerald-500 transition ${
+                        isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                      }`}
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs text-slate-400 mb-1 block font-bold">תאריך</label>
-                    <input
-                      type="date"
-                      required
-                      value={newEvent.date}
-                      onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
-                      className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none focus:border-emerald-500"
-                    />
+                    <label className={`block text-xs font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>תיאור (אופציונלי)</label>
+                    <textarea 
+                      placeholder="פרטים נוספים..." 
+                      value={description} 
+                      onChange={e => setDescription(e.target.value)} 
+                      rows="2"
+                      className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-emerald-500 transition resize-none ${
+                        isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                      }`}
+                    ></textarea>
                   </div>
 
                   <div>
-                    <label className="text-xs text-slate-400 mb-1 block font-bold">שיוך</label>
-                    <select
-                      value={newEvent.owner}
-                      onChange={(e) => setNewEvent({ ...newEvent, owner: e.target.value })}
-                      className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none focus:border-emerald-500"
-                    >
-                      <option value="משותף">משותף 🤝</option>
-                      <option value="דודי">דודי 👨</option>
-                      <option value="שיינדי">שיינדי 👩</option>
-                      <option value="כללי">כללי 📌</option>
-                    </select>
+                    <label className={`block text-xs font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>כתובת / מיקום</label>
+                    <div className="relative">
+                      <i className="fa-solid fa-location-dot absolute right-3 top-3.5 text-slate-400 text-xs"></i>
+                      <input 
+                        type="text" 
+                        placeholder="רחוב, עיר או שם מקום..." 
+                        value={location} 
+                        onChange={e => setLocation(e.target.value)} 
+                        className={`w-full border rounded-xl py-3 pr-8 pl-3 text-sm outline-none focus:border-emerald-500 transition ${
+                          isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                        }`}
+                      />
+                    </div>
                   </div>
 
-                  <div className="flex justify-end gap-3 mt-4">
-                    <button
-                      type="button"
-                      onClick={() => setShowModal(false)}
-                      className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-xl text-sm font-bold"
-                    >
-                      ביטול
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/20"
-                    >
-                      שמור אירוע
-                    </button>
+                  <div>
+                    <label className={`block text-xs font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>תאריך *</label>
+                    <input 
+                      type="date" 
+                      value={dateStr} 
+                      onChange={e => setDateStr(e.target.value)} 
+                      required 
+                      className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-emerald-500 transition ${
+                        isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                      }`}
+                    />
                   </div>
+
+                  <div className={`p-3 rounded-2xl border space-y-3 ${isDarkMode ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+                    <label className="flex items-center space-x-2 space-x-reverse text-sm font-semibold cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={isAllDay} 
+                        onChange={e => setIsAllDay(e.target.checked)} 
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>אירוע לכל היום</span>
+                    </label>
+
+                    {!isAllDay && (
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">משעה</label>
+                          <input 
+                            type="time" 
+                            value={startTime} 
+                            onChange={e => setStartTime(e.target.value)} 
+                            className={`w-full border rounded-xl p-2 text-sm outline-none focus:border-emerald-500 ${
+                              isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">עד שעה</label>
+                          <input 
+                            type="time" 
+                            value={endTime} 
+                            onChange={e => setEndTime(e.target.value)} 
+                            className={`w-full border rounded-xl p-2 text-sm outline-none focus:border-emerald-500 ${
+                              isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>משויך ל:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['דודי', 'שיינדי', 'משותף'].map((name) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => setOwner(name)}
+                          className={`py-2.5 rounded-xl text-xs font-bold border transition ${
+                            owner === name 
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' 
+                              : isDarkMode 
+                              ? 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-700' 
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-3.5 rounded-2xl transition shadow-lg shadow-emerald-600/30 text-sm active:scale-[0.98] mt-2"
+                  >
+                    שמור אירוע
+                  </button>
                 </form>
               </div>
             </div>
@@ -430,7 +799,7 @@
       );
     }
 
-    ReactDOM.render(<CalendarApp />, document.getElementById('root'));
+    ReactDOM.createRoot(document.getElementById('root')).render(<CalendarApp />);
   </script>
 </body>
 </html>
