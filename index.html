@@ -49,34 +49,105 @@
 
     const YEARS = Array.from({ length: 7 }, (_, i) => 2024 + i);
 
+    // כלים לתמיכה בלוח העברי (מבוססים על ספריית hebcal הטעונה גלובלית)
+    const TISHREI = 7;
+
+    const HEBREW_MONTH_NAMES = {
+      'Nisan': 'ניסן', 'Iyyar': 'אייר', 'Sivan': 'סיוון', 'Tamuz': 'תמוז',
+      'Av': 'אב', 'Elul': 'אלול', 'Tishrei': 'תשרי', 'Cheshvan': 'חשוון',
+      'Kislev': 'כסלו', 'Tevet': 'טבת', "Sh'vat": 'שבט', 'Adar': 'אדר',
+      'Adar I': 'אדר א׳', 'Adar II': 'אדר ב׳'
+    };
+
+    // כינויי הימים בגימטרייה נהוגה (ט"ו/ט"ז במקום י"ה/י"ו)
+    const HEBREW_DAY_NUMERALS = {
+      1: 'א׳', 2: 'ב׳', 3: 'ג׳', 4: 'ד׳', 5: 'ה׳', 6: 'ו׳', 7: 'ז׳', 8: 'ח׳', 9: 'ט׳', 10: 'י׳',
+      11: 'י״א', 12: 'י״ב', 13: 'י״ג', 14: 'י״ד', 15: 'ט״ו', 16: 'ט״ז', 17: 'י״ז', 18: 'י״ח', 19: 'י״ט', 20: 'כ׳',
+      21: 'כ״א', 22: 'כ״ב', 23: 'כ״ג', 24: 'כ״ד', 25: 'כ״ה', 26: 'כ״ו', 27: 'כ״ז', 28: 'כ״ח', 29: 'כ״ט', 30: 'ל׳'
+    };
+
+    const HEBREW_YEAR_MIN = new hebcal.HDate(new Date(YEARS[0], 0, 1)).getFullYear();
+    const HEBREW_YEAR_MAX = new hebcal.HDate(new Date(YEARS[YEARS.length - 1], 11, 31)).getFullYear();
+    const HEBREW_YEARS = Array.from({ length: HEBREW_YEAR_MAX - HEBREW_YEAR_MIN + 1 }, (_, i) => HEBREW_YEAR_MIN + i);
+
+    function hebrewDayNumeral(day) {
+      return HEBREW_DAY_NUMERALS[day] || String(day);
+    }
+
+    function hebrewMonthLabel(monthNum, hyear) {
+      const name = hebcal.HDate.getMonthName(monthNum, hyear);
+      return HEBREW_MONTH_NAMES[name] || name;
+    }
+
+    // ייצוג השנה העברית בגימטרייה תקנית (למשל 5786 -> תשפ"ו)
+    function hebrewYearLabel(hyear) {
+      const rendered = new hebcal.HDate(1, TISHREI, hyear).renderGematriya(true, false);
+      const parts = rendered.trim().split(' ');
+      return parts[parts.length - 1];
+    }
+
+    // סדר כרונולוגי של חודשי השנה העברית (מתשרי, לא ממספר 1)
+    function getChronologicalHebrewMonths(hyear) {
+      const monthsInYear = hebcal.HDate.monthsInYear(hyear);
+      const monthsList = [];
+      for (let m = TISHREI; m <= monthsInYear; m++) monthsList.push(m);
+      for (let m = 1; m < TISHREI; m++) monthsList.push(m);
+      return monthsList;
+    }
+
+    function formatIsoDate(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatGregorianShort(dateObj) {
+      return `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function formatGregorianFull(dateObj) {
+      return `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}`;
+    }
+
+    // תוויות תאריך מלאות (עברי + לועזי) לפי תאריך יומי, בהתאם למערכת הלוח הראשית
+    function getDualDateLabels(dateObj, calendarSystem) {
+      const hd = new hebcal.HDate(dateObj);
+      const gregorianLabel = formatGregorianFull(dateObj);
+      const hebrewLabel = hd.renderGematriya(true, false);
+      return calendarSystem === 'hebrew'
+        ? { primary: hebrewLabel, secondary: gregorianLabel }
+        : { primary: gregorianLabel, secondary: hebrewLabel };
+    }
+
     // הגדרת צבעים ייחודיים ומפורטים לכל משתמש
     const OWNER_COLORS = {
-      'דודי': { 
-        bg: 'bg-emerald-500', 
+      'דודי': {
+        bg: 'bg-emerald-500',
         dot: 'bg-emerald-500',
         cardLight: 'bg-emerald-50/80 border-emerald-200 text-emerald-950',
         cardDark: 'bg-emerald-950/40 border-emerald-800/60 text-emerald-100',
         badgeLight: 'bg-emerald-100 text-emerald-800 border-emerald-300',
         badgeDark: 'bg-emerald-900/80 text-emerald-200 border-emerald-700'
       },
-      'שיינדי': { 
-        bg: 'bg-rose-500', 
+      'שיינדי': {
+        bg: 'bg-rose-500',
         dot: 'bg-rose-500',
         cardLight: 'bg-rose-50/80 border-rose-200 text-rose-950',
         cardDark: 'bg-rose-950/40 border-rose-800/60 text-rose-100',
         badgeLight: 'bg-rose-100 text-rose-800 border-rose-300',
         badgeDark: 'bg-rose-900/80 text-rose-200 border-rose-700'
       },
-      'משותף': { 
-        bg: 'bg-indigo-500', 
+      'משותף': {
+        bg: 'bg-indigo-500',
         dot: 'bg-indigo-500',
         cardLight: 'bg-indigo-50/80 border-indigo-200 text-indigo-950',
         cardDark: 'bg-indigo-950/40 border-indigo-800/60 text-indigo-100',
         badgeLight: 'bg-indigo-100 text-indigo-800 border-indigo-300',
         badgeDark: 'bg-indigo-900/80 text-indigo-200 border-indigo-700'
       },
-      'כללי': { 
-        bg: 'bg-indigo-500', 
+      'כללי': {
+        bg: 'bg-indigo-500',
         dot: 'bg-indigo-500',
         cardLight: 'bg-indigo-50/80 border-indigo-200 text-indigo-950',
         cardDark: 'bg-indigo-950/40 border-indigo-800/60 text-indigo-100',
@@ -90,6 +161,12 @@
       const [isDarkMode, setIsDarkMode] = React.useState(() => {
         const savedTheme = localStorage.getItem('app_theme');
         return savedTheme ? savedTheme === 'dark' : true;
+      });
+
+      // סוג הלוח הראשי המוצג: 'gregorian' (לועזי) או 'hebrew' (עברי)
+      const [calendarSystem, setCalendarSystem] = React.useState(() => {
+        const saved = localStorage.getItem('app_calendar_system');
+        return saved === 'hebrew' ? 'hebrew' : 'gregorian';
       });
 
       const [currentDate, setCurrentDate] = React.useState(new Date());
@@ -116,6 +193,14 @@
         setIsDarkMode(prev => {
           const next = !prev;
           localStorage.setItem('app_theme', next ? 'dark' : 'light');
+          return next;
+        });
+      };
+
+      const toggleCalendarSystem = () => {
+        setCalendarSystem(prev => {
+          const next = prev === 'gregorian' ? 'hebrew' : 'gregorian';
+          localStorage.setItem('app_calendar_system', next);
           return next;
         });
       };
@@ -212,6 +297,12 @@
       };
 
       const handleNavigateTime = (direction) => {
+        if (calendarSystem === 'hebrew' && viewMode === 'month') {
+          const hd = new hebcal.HDate(currentDate);
+          const firstOfMonth = new hebcal.HDate(1, hd.getMonth(), hd.getFullYear());
+          setCurrentDate(firstOfMonth.add(direction, 'month').greg());
+          return;
+        }
         const next = new Date(currentDate);
         if (viewMode === 'month') {
           next.setMonth(next.getMonth() + direction);
@@ -235,6 +326,20 @@
         setCurrentDate(next);
       };
 
+      const handleHebrewMonthSelect = (e) => {
+        const hd = new hebcal.HDate(currentDate);
+        const newMonth = parseInt(e.target.value, 10);
+        setCurrentDate(new hebcal.HDate(1, newMonth, hd.getFullYear()).greg());
+      };
+
+      const handleHebrewYearSelect = (e) => {
+        const hd = new hebcal.HDate(currentDate);
+        const newYear = parseInt(e.target.value, 10);
+        const monthsInNewYear = hebcal.HDate.monthsInYear(newYear);
+        const safeMonth = Math.min(hd.getMonth(), monthsInNewYear);
+        setCurrentDate(new hebcal.HDate(1, safeMonth, newYear).greg());
+      };
+
       const filteredEvents = events.filter(e => {
         if (filterOwner === 'הכול') return true;
         if (filterOwner === 'משותף') return e.owner === 'משותף' || e.owner === 'כללי';
@@ -254,6 +359,29 @@
       };
 
       const getDaysInMonthGrid = () => {
+        if (calendarSystem === 'hebrew') {
+          const hd = new hebcal.HDate(currentDate);
+          const hyear = hd.getFullYear();
+          const hmonth = hd.getMonth();
+          const daysInMonth = hebcal.HDate.daysInMonth(hmonth, hyear);
+          const firstHDate = new hebcal.HDate(1, hmonth, hyear);
+          const firstDayOfWeek = firstHDate.greg().getDay();
+
+          const grid = [];
+          for (let i = 0; i < firstDayOfWeek; i++) grid.push(null);
+          for (let day = 1; day <= daysInMonth; day++) {
+            const curHDate = new hebcal.HDate(day, hmonth, hyear);
+            const gregDate = curHDate.greg();
+            const dStr = formatIsoDate(gregDate);
+            grid.push({
+              dStr,
+              primaryLabel: hebrewDayNumeral(day),
+              secondaryLabel: formatGregorianShort(gregDate)
+            });
+          }
+          return grid;
+        }
+
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
         const firstDay = new Date(year, month, 1).getDay();
@@ -265,7 +393,12 @@
           const formattedMonth = String(month + 1).padStart(2, '0');
           const formattedDay = String(day).padStart(2, '0');
           const dStr = `${year}-${formattedMonth}-${formattedDay}`;
-          grid.push({ day, dStr });
+          const hd = new hebcal.HDate(new Date(year, month, day));
+          grid.push({
+            dStr,
+            primaryLabel: String(day),
+            secondaryLabel: `${hebrewDayNumeral(hd.getDate())} ${hebrewMonthLabel(hd.getMonth(), hd.getFullYear())}`
+          });
         }
         return grid;
       };
@@ -278,7 +411,7 @@
             <div className={`text-center py-8 px-4 rounded-2xl border border-dashed ${isDarkMode ? 'bg-slate-800/40 border-slate-700/60' : 'bg-emerald-50/40 border-emerald-200'}`}>
               <i className="fa-regular fa-calendar-check text-2xl text-emerald-500 mb-2 block"></i>
               <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>אין אירועים מתוכננים</p>
-              <button 
+              <button
                 onClick={() => openModalForNew(targetDateStr)}
                 className="mt-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline transition"
               >
@@ -297,12 +430,12 @@
               const badgeClass = isDarkMode ? style.badgeDark : style.badgeLight;
 
               return (
-                <div 
-                  key={ev.id} 
+                <div
+                  key={ev.id}
                   className={`rounded-2xl p-3.5 shadow-sm border transition flex flex-col justify-between gap-2.5 relative overflow-hidden ${cardClass}`}
                 >
                   <div className={`absolute top-0 right-0 bottom-0 w-1.5 ${style.bg}`}></div>
-                  
+
                   <div className="flex justify-between items-start pr-2">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
@@ -331,10 +464,10 @@
                   </div>
 
                   {ev.location && (
-                    <a 
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`} 
-                      target="_blank" 
-                      rel="noreferrer" 
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`}
+                      target="_blank"
+                      rel="noreferrer"
                       className={`text-xs font-semibold px-2.5 py-1 rounded-xl inline-flex items-center gap-1.5 w-fit transition mr-2 ${
                         isDarkMode ? 'bg-slate-900/60 hover:bg-slate-900/90' : 'bg-white/90 hover:bg-white'
                       }`}
@@ -370,8 +503,19 @@
               </div>
 
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={toggleTheme} 
+                <button
+                  onClick={toggleCalendarSystem}
+                  className={`h-9 px-2.5 rounded-xl flex items-center justify-center gap-1 transition active:scale-90 border text-xs font-black ${
+                    isDarkMode ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-slate-100 border-slate-200 text-emerald-600'
+                  }`}
+                  title="החלף סוג לוח (עברי / לועזי)"
+                >
+                  <i className="fa-solid fa-calendar-days text-[11px]"></i>
+                  <span>{calendarSystem === 'hebrew' ? 'עברי' : 'לועזי'}</span>
+                </button>
+
+                <button
+                  onClick={toggleTheme}
                   className={`w-9 h-9 rounded-xl flex items-center justify-center transition active:scale-90 border ${
                     isDarkMode ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-slate-100 border-slate-200 text-emerald-600'
                   }`}
@@ -380,7 +524,7 @@
                   <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'} text-sm`}></i>
                 </button>
 
-                <button 
+                <button
                   onClick={() => openModalForNew()}
                   className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-lg shadow-emerald-600/30 flex items-center gap-1.5"
                 >
@@ -414,8 +558,8 @@
               isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200'
             }`}>
               <div className="flex items-center justify-between gap-2">
-                <button 
-                  onClick={() => handleNavigateTime(1)} 
+                <button
+                  onClick={() => handleNavigateTime(1)}
                   className={`w-8 h-8 rounded-xl flex items-center justify-center border transition ${
                     isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                   }`}
@@ -425,33 +569,71 @@
                 </button>
 
                 <div className="flex items-center gap-2 flex-1 justify-center">
-                  <select 
-                    value={currentDate.getMonth()} 
-                    onChange={handleMonthSelect}
-                    className={`font-bold text-sm px-3 py-1.5 rounded-xl border outline-none cursor-pointer transition ${
-                      isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
-                    }`}
-                  >
-                    {HEBREW_MONTHS.map((m, idx) => (
-                      <option key={idx} value={idx}>{m}</option>
-                    ))}
-                  </select>
+                  {calendarSystem === 'hebrew' ? (
+                    (() => {
+                      const hd = new hebcal.HDate(currentDate);
+                      const hyear = hd.getFullYear();
+                      const hmonth = hd.getMonth();
+                      const chronologicalMonths = getChronologicalHebrewMonths(hyear);
+                      return (
+                        <React.Fragment>
+                          <select
+                            value={hmonth}
+                            onChange={handleHebrewMonthSelect}
+                            className={`font-bold text-sm px-3 py-1.5 rounded-xl border outline-none cursor-pointer transition ${
+                              isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                            }`}
+                          >
+                            {chronologicalMonths.map((m) => (
+                              <option key={m} value={m}>{hebrewMonthLabel(m, hyear)}</option>
+                            ))}
+                          </select>
 
-                  <select 
-                    value={currentDate.getFullYear()} 
-                    onChange={handleYearSelect}
-                    className={`font-bold text-sm px-3 py-1.5 rounded-xl border outline-none cursor-pointer transition ${
-                      isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
-                    }`}
-                  >
-                    {YEARS.map(y => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
+                          <select
+                            value={hyear}
+                            onChange={handleHebrewYearSelect}
+                            className={`font-bold text-sm px-3 py-1.5 rounded-xl border outline-none cursor-pointer transition ${
+                              isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                            }`}
+                          >
+                            {HEBREW_YEARS.map(y => (
+                              <option key={y} value={y}>{hebrewYearLabel(y)}</option>
+                            ))}
+                          </select>
+                        </React.Fragment>
+                      );
+                    })()
+                  ) : (
+                    <React.Fragment>
+                      <select
+                        value={currentDate.getMonth()}
+                        onChange={handleMonthSelect}
+                        className={`font-bold text-sm px-3 py-1.5 rounded-xl border outline-none cursor-pointer transition ${
+                          isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                        }`}
+                      >
+                        {HEBREW_MONTHS.map((m, idx) => (
+                          <option key={idx} value={idx}>{m}</option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={currentDate.getFullYear()}
+                        onChange={handleYearSelect}
+                        className={`font-bold text-sm px-3 py-1.5 rounded-xl border outline-none cursor-pointer transition ${
+                          isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                        }`}
+                      >
+                        {YEARS.map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </React.Fragment>
+                  )}
                 </div>
 
-                <button 
-                  onClick={() => handleNavigateTime(-1)} 
+                <button
+                  onClick={() => handleNavigateTime(-1)}
                   className={`w-8 h-8 rounded-xl flex items-center justify-center border transition ${
                     isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                   }`}
@@ -460,8 +642,8 @@
                   <i className="fa-solid fa-chevron-left text-xs"></i>
                 </button>
 
-                <button 
-                  onClick={handleGoToToday} 
+                <button
+                  onClick={handleGoToToday}
                   className="text-xs font-black bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-xl border border-emerald-500/30 transition active:scale-95 mr-1"
                 >
                   היום
@@ -471,20 +653,20 @@
               <div className={`grid grid-cols-3 gap-1 p-1 rounded-xl border text-xs font-bold ${
                 isDarkMode ? 'bg-slate-900/80 border-slate-700/50' : 'bg-slate-100 border-slate-200'
               }`}>
-                <button 
-                  onClick={() => setViewMode('month')} 
+                <button
+                  onClick={() => setViewMode('month')}
                   className={`py-1.5 rounded-lg transition ${viewMode === 'month' ? 'bg-emerald-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
                 >
                   חודש
                 </button>
-                <button 
-                  onClick={() => setViewMode('week')} 
+                <button
+                  onClick={() => setViewMode('week')}
                   className={`py-1.5 rounded-lg transition ${viewMode === 'week' ? 'bg-emerald-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
                 >
                   שבוע
                 </button>
-                <button 
-                  onClick={() => setViewMode('day')} 
+                <button
+                  onClick={() => setViewMode('day')}
                   className={`py-1.5 rounded-lg transition ${viewMode === 'day' ? 'bg-emerald-600 text-white shadow-md' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
                 >
                   יום
@@ -504,33 +686,39 @@
 
                 <div className="grid grid-cols-7 gap-1">
                   {getDaysInMonthGrid().map((cell, i) => {
-                    if (!cell) return <div key={`empty-${i}`} className={`h-12 rounded-xl ${isDarkMode ? 'bg-slate-900/20' : 'bg-slate-100/40'}`}></div>;
+                    if (!cell) return <div key={`empty-${i}`} className={`h-16 rounded-xl ${isDarkMode ? 'bg-slate-900/20' : 'bg-slate-100/40'}`}></div>;
 
-                    const { day, dStr } = cell;
+                    const { dStr, primaryLabel, secondaryLabel } = cell;
                     const isToday = dStr === todayStr;
                     const isSelected = selectedDate === dStr;
                     const dayEvents = filteredEvents.filter(e => e.date === dStr);
 
                     return (
-                      <div 
-                        key={dStr} 
+                      <div
+                        key={dStr}
                         onClick={() => setSelectedDateEvents({ date: dStr })}
-                        className={`h-12 rounded-xl p-1 cursor-pointer transition flex flex-col justify-between items-center relative ${
+                        className={`h-16 rounded-xl p-1 cursor-pointer transition flex flex-col justify-between items-center relative ${
                           isSelected
                             ? 'bg-emerald-600/30 border-2 border-emerald-500 shadow-md'
-                            : isToday 
-                            ? 'bg-emerald-950/80 border border-emerald-500' 
-                            : isDarkMode 
-                            ? 'bg-slate-900/60 hover:bg-slate-700/50 border border-slate-700/40' 
+                            : isToday
+                            ? 'bg-emerald-950/80 border border-emerald-500'
+                            : isDarkMode
+                            ? 'bg-slate-900/60 hover:bg-slate-700/50 border border-slate-700/40'
                             : 'bg-slate-50 hover:bg-slate-100 border border-slate-200'
                         }`}
                       >
-                        <span className={`text-xs font-black ${
-                          isToday 
-                            ? 'bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center' 
+                        <span className={`text-xs font-black leading-none mt-0.5 ${
+                          isToday
+                            ? 'bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center'
                             : isSelected ? 'text-emerald-400' : isDarkMode ? 'text-slate-200' : 'text-slate-700'
                         }`}>
-                          {day}
+                          {primaryLabel}
+                        </span>
+
+                        <span className={`text-[8px] leading-none font-semibold opacity-60 ${
+                          isDarkMode ? 'text-slate-400' : 'text-slate-500'
+                        }`}>
+                          {secondaryLabel}
                         </span>
 
                         <div className="flex items-center justify-center gap-0.5 max-w-full overflow-hidden px-0.5 pb-0.5">
@@ -559,13 +747,19 @@
                 <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">לו"ז ליום</span>
-                    <span className={`text-sm font-black px-2.5 py-0.5 rounded-lg border shadow-sm ${
-                      isDarkMode ? 'bg-slate-900 text-white border-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200'
-                    }`}>
-                      {selectedDate}
-                    </span>
+                    {(() => {
+                      const labels = getDualDateLabels(new Date(selectedDate + 'T00:00:00'), calendarSystem);
+                      return (
+                        <span className={`flex flex-col leading-tight text-sm font-black px-2.5 py-1 rounded-lg border shadow-sm ${
+                          isDarkMode ? 'bg-slate-900 text-white border-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200'
+                        }`}>
+                          <span>{labels.primary}</span>
+                          <span className="text-[10px] font-semibold opacity-60">{labels.secondary}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
-                  <button 
+                  <button
                     onClick={() => openModalForNew(selectedDate)}
                     className="text-xs font-bold text-emerald-500 hover:underline transition"
                   >
@@ -586,7 +780,7 @@
                     שבוע: {weekDays[0].toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })} - {weekDays[6].toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}
                   </span>
                   <div className="flex items-center gap-1">
-                    <button 
+                    <button
                       onClick={() => handleNavigateTime(-1)}
                       className={`w-7 h-7 rounded-lg flex items-center justify-center border transition ${
                         isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
@@ -594,7 +788,7 @@
                     >
                       <i className="fa-solid fa-chevron-right text-xs"></i>
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleNavigateTime(1)}
                       className={`w-7 h-7 rounded-lg flex items-center justify-center border transition ${
                         isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
@@ -604,7 +798,7 @@
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   {weekDays.map((d, idx) => {
                     const dStr = d.toISOString().split('T')[0];
@@ -615,9 +809,15 @@
                         isDarkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-200'
                       }`}>
                         <div className="flex items-center justify-between mb-2">
-                          <span className={`text-xs font-black px-2 py-0.5 rounded-md ${isToday ? 'bg-emerald-600 text-white' : isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
-                            יום {['א\'','ב\'','ג\'','ד\'','ה\'','ו\'','ש\''][d.getDay()]} ({d.getDate()}/{d.getMonth() + 1})
-                          </span>
+                          {(() => {
+                            const labels = getDualDateLabels(d, calendarSystem);
+                            return (
+                              <span className={`flex flex-col leading-tight text-xs font-black px-2 py-1 rounded-md ${isToday ? 'bg-emerald-600 text-white' : isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
+                                <span>יום {['א\'','ב\'','ג\'','ד\'','ה\'','ו\'','ש\''][d.getDay()]} · {labels.primary}</span>
+                                <span className="text-[9px] font-semibold opacity-70">{labels.secondary}</span>
+                              </span>
+                            );
+                          })()}
                           <button onClick={() => openModalForNew(dStr)} className="text-[11px] font-bold text-emerald-500">
                             + הוסף
                           </button>
@@ -635,9 +835,15 @@
                 isDarkMode ? 'bg-slate-800/90 border border-slate-700' : 'bg-white border border-slate-200'
               }`}>
                 <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                  <span className="text-sm font-black">
-                    תצוגה יומית – {currentDate.toISOString().split('T')[0]}
-                  </span>
+                  {(() => {
+                    const labels = getDualDateLabels(currentDate, calendarSystem);
+                    return (
+                      <span className="flex flex-col leading-tight text-sm font-black">
+                        <span>תצוגה יומית – {labels.primary}</span>
+                        <span className="text-[10px] font-semibold opacity-60">{labels.secondary}</span>
+                      </span>
+                    );
+                  })()}
                   <button onClick={() => openModalForNew(currentDate.toISOString().split('T')[0])} className="text-xs font-bold text-emerald-500">
                     + הוסף אירוע
                   </button>
@@ -670,12 +876,12 @@
                 <form onSubmit={handleSaveEvent} className="space-y-4">
                   <div>
                     <label className={`block text-xs font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>כותרת האירוע *</label>
-                    <input 
-                      type="text" 
-                      placeholder="מה מתכננים?" 
-                      value={title} 
-                      onChange={e => setTitle(e.target.value)} 
-                      required 
+                    <input
+                      type="text"
+                      placeholder="מה מתכננים?"
+                      value={title}
+                      onChange={e => setTitle(e.target.value)}
+                      required
                       className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-emerald-500 transition ${
                         isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                       }`}
@@ -684,10 +890,10 @@
 
                   <div>
                     <label className={`block text-xs font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>תיאור (אופציונלי)</label>
-                    <textarea 
-                      placeholder="פרטים נוספים..." 
-                      value={description} 
-                      onChange={e => setDescription(e.target.value)} 
+                    <textarea
+                      placeholder="פרטים נוספים..."
+                      value={description}
+                      onChange={e => setDescription(e.target.value)}
                       rows="2"
                       className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-emerald-500 transition resize-none ${
                         isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
@@ -699,11 +905,11 @@
                     <label className={`block text-xs font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>כתובת / מיקום</label>
                     <div className="relative">
                       <i className="fa-solid fa-location-dot absolute right-3 top-3.5 text-slate-400 text-xs"></i>
-                      <input 
-                        type="text" 
-                        placeholder="רחוב, עיר או שם מקום..." 
-                        value={location} 
-                        onChange={e => setLocation(e.target.value)} 
+                      <input
+                        type="text"
+                        placeholder="רחוב, עיר או שם מקום..."
+                        value={location}
+                        onChange={e => setLocation(e.target.value)}
                         className={`w-full border rounded-xl py-3 pr-8 pl-3 text-sm outline-none focus:border-emerald-500 transition ${
                           isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                         }`}
@@ -713,11 +919,11 @@
 
                   <div>
                     <label className={`block text-xs font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>תאריך *</label>
-                    <input 
-                      type="date" 
-                      value={dateStr} 
-                      onChange={e => setDateStr(e.target.value)} 
-                      required 
+                    <input
+                      type="date"
+                      value={dateStr}
+                      onChange={e => setDateStr(e.target.value)}
+                      required
                       className={`w-full border rounded-xl p-3 text-sm outline-none focus:border-emerald-500 transition ${
                         isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                       }`}
@@ -726,10 +932,10 @@
 
                   <div className={`p-3 rounded-2xl border space-y-3 ${isDarkMode ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                     <label className="flex items-center space-x-2 space-x-reverse text-sm font-semibold cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={isAllDay} 
-                        onChange={e => setIsAllDay(e.target.checked)} 
+                      <input
+                        type="checkbox"
+                        checked={isAllDay}
+                        onChange={e => setIsAllDay(e.target.checked)}
                         className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
                       />
                       <span>אירוע לכל היום</span>
@@ -739,10 +945,10 @@
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         <div>
                           <label className="block text-[11px] font-bold text-slate-400 mb-1">משעה</label>
-                          <input 
-                            type="time" 
-                            value={startTime} 
-                            onChange={e => setStartTime(e.target.value)} 
+                          <input
+                            type="time"
+                            value={startTime}
+                            onChange={e => setStartTime(e.target.value)}
                             className={`w-full border rounded-xl p-2 text-sm outline-none focus:border-emerald-500 ${
                               isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
                             }`}
@@ -750,10 +956,10 @@
                         </div>
                         <div>
                           <label className="block text-[11px] font-bold text-slate-400 mb-1">עד שעה</label>
-                          <input 
-                            type="time" 
-                            value={endTime} 
-                            onChange={e => setEndTime(e.target.value)} 
+                          <input
+                            type="time"
+                            value={endTime}
+                            onChange={e => setEndTime(e.target.value)}
                             className={`w-full border rounded-xl p-2 text-sm outline-none focus:border-emerald-500 ${
                               isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
                             }`}
@@ -772,10 +978,10 @@
                           type="button"
                           onClick={() => setOwner(name)}
                           className={`py-2.5 rounded-xl text-xs font-bold border transition ${
-                            owner === name 
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' 
-                              : isDarkMode 
-                              ? 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-700' 
+                            owner === name
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                              : isDarkMode
+                              ? 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-700'
                               : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
@@ -785,8 +991,8 @@
                     </div>
                   </div>
 
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-3.5 rounded-2xl transition shadow-lg shadow-emerald-600/30 text-sm active:scale-[0.98] mt-2"
                   >
                     שמור אירוע
